@@ -1,0 +1,50 @@
+# General
+.DS_Store
+.idea
+.vscode
+*.log
+*.tmp
+# Secrets
+serviceAccountKey.json
+**/serviceAccountKey.json
+*.keystore
+*.jks
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+venv.bak/
+logs/
+*.zip
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+android/app/build
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# DACN specific (Output files & Data)
+DACN/data/
+DACN/models/
+DACN/models_phase7/
+DACN/reports/
+
+# Flutter specific (Nested)
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies

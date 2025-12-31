@@ -1,0 +1,88 @@
+project:
+  seed: 42
+  log_dir: logs
+  model_dir: models
+  figure_dir: reports/figures
+
+data:
+  tickers: [AAPL, NVDA, GOOG]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  dataset_path: data/processed/aapl_nvda_goog_daily.npz
+  train_ratio: 0.8
+  feature_window: 50
+  technical_indicators:
+    - rsi
+    - macd
+    - stochastic
+    - williams_r
+    - roc
+    - bollinger
+    - atr
+    - adx
+    - obv
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.5
+  reward_metric: directional
+  window_size: 64
+  reward_positive: 1.5
+  reward_negative: -3.0
+  reward_scale: 1.0
+  action_threshold: 0.1
+  direction_reward_weight: 0.5
+  trade_penalty: 0.1
+  direction_prob_threshold: 0.55
+  # Optional advanced gating (defaults keep behavior unchanged)
+  direction_prob_tolerance: 0.0
+  cooldown_steps: 0
+  hold_bonus: 0.0
+  low_vol_bonus: 0.0
+  low_vol_threshold: 0.0
+  volatility_lookback: 21
+  low_vol_direction_threshold: 0.0
+  subthreshold_trade_penalty: 0.0
+  # Regime-aware gating
+  regime_gating_enabled: false
+  regime_momentum_lookback: 20
+  regime_momentum_threshold: 0.0
+  regime_adx_feature_idx: null
+  regime_momentum_feature_idx: null
+  regime_adx_threshold: 20.0
+  regime_threshold_delta: 0.0
+  # V3 override (disabled by default)
+  override_gating_enabled: false
+  override_momentum_threshold: 0.0
+  override_adx_threshold: 20.0
+  override_min_duration: 0
+  override_cooldown: 0
+  override_action_threshold_mult: 1.0
+  override_dpt_shift: 0.0
+  override_ignore_dpt: false
+
+agent:
+  algorithm: PPO
+  total_timesteps: 500000
+  learning_rate: 0.00005
+  gamma: 0.9
+  gae_lambda: 0.85
+  clip_range: 0.15
+  n_steps: 512
+  batch_size: 512
+  ent_coef: 0.001
+  vf_coef: 0.55
+  max_grad_norm: 0.5
+  policy_kwargs:
+    net_arch:
+      pi: [512, 256]
+      vf: [512, 256]
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2022-01-03
+  evaluation_end: 2024-12-31

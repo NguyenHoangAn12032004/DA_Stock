@@ -1,0 +1,86 @@
+project:
+  seed: 42
+  log_dir: logs/aapl_finetune_2025_ext
+  model_dir: models/aapl_finetune_2025_ext
+  figure_dir: reports/figures/aapl_finetune_2025_ext
+data:
+  tickers:
+  - AAPL
+  start: 2010-01-01
+  end: 2025-12-31
+  interval: 1d
+  dataset_path: data/processed/aapl/aapl_1d_ext_calib.npz
+  train_ratio: 0.85
+  feature_window: 50
+  technical_indicators:
+  - rsi
+  - macd
+  - stochastic
+  - williams_r
+  - roc
+  - bollinger
+  - atr
+  - adx
+  - obv
+  - mfi
+  - cci
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.3
+  reward_metric: differential_log_return
+  window_size: 64
+  reward_positive: 1.15
+  reward_negative: -3.2
+  reward_scale: 0.9
+  action_threshold: 0.026469609283413575
+  direction_reward_weight: 0.23633330422760432
+  trade_penalty: 0.022923300170262752
+  direction_prob_threshold: 0.639679405439738
+  direction_prob_tolerance: 0.04341157077660613
+  low_vol_direction_threshold: 0.675537359623895
+  cooldown_steps: 6
+  hold_bonus: 0.15
+  low_vol_bonus: 0.06266919120657652
+  low_vol_threshold: 0.4079974212394444
+  volatility_lookback: 21
+  subthreshold_trade_penalty: 0.007623630759113087
+  regime_gating_enabled: true
+  regime_momentum_lookback: 10
+  regime_momentum_threshold: 0.0
+  regime_adx_feature_idx: 16
+  regime_momentum_feature_idx: 33
+  regime_adx_threshold: 15.0
+  regime_threshold_delta: 0.01
+agent:
+  algorithm: PPO
+  total_timesteps: 350000
+  learning_rate: 0.00010113133051262839
+  learning_rate_end: 7.062126016910142e-05
+  gamma: 0.9827835599715234
+  gae_lambda: 0.9693657854864083
+  clip_range: 0.26202267893583614
+  n_steps: 512
+  batch_size: 512
+  ent_coef: 0.0029161432770697304
+  ent_coef_end: 0.0007823370044191627
+  vf_coef: 0.6807867509030814
+  max_grad_norm: 0.6183170677744404
+  eval_freq: 25000
+  policy_kwargs:
+    net_arch:
+      pi:
+      - 256
+      - 128
+      vf:
+      - 256
+      - 128
+training:
+  train_start_date: 2023-01-01
+  train_end_date: 2025-09-30
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2025-01-01
+  evaluation_end: 2025-09-30

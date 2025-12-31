@@ -1,0 +1,28 @@
+thresholds:
+  forward_sharpe_min: 0.5
+  forward_drawdown_max: -0.02
+  evaluation_sharpe_min: 0.4
+  evaluation_hit_ratio_min: 0.5
+  evaluation_direction_accuracy_min: 0.52
+  walkforward_mean_sharpe_min: -0.5
+  walkforward_positive_fraction_min: 0.4
+  scenario_min_sharpe_min: -3.0
+
+output_path: reports/chat_gating/status.json
+
+tickers:
+  GOOG:
+    evaluation: reports/figures/goog/evaluation_metrics.json
+    forward: reports/forward_paper/goog/latest/summary.json
+    walkforward: reports/walkforward/goog/walkforward_summary.json
+    scenarios: reports/scenarios/goog/scenario_summary.json
+  AAPL:
+    evaluation: reports/figures/aapl/evaluation_metrics.json
+    forward: reports/forward_paper/aapl/latest/summary.json
+    walkforward: reports/walkforward/aapl/walkforward_summary.json
+    scenarios: reports/scenarios/aapl/scenario_summary.json
+  NVDA:
+    evaluation: reports/figures/nvda/evaluation_metrics.json
+    forward: reports/forward_paper/nvda/latest/summary.json
+    walkforward: reports/walkforward/nvda/walkforward_summary.json
+    scenarios: reports/scenarios/nvda/scenario_summary.json

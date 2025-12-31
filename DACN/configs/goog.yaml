@@ -1,0 +1,96 @@
+project:
+  seed: 42
+  log_dir: logs/goog
+  model_dir: models/goog
+  figure_dir: reports/figures/goog
+
+data:
+  tickers: [GOOG]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  dataset_path: data/processed/goog/goog_1d.npz
+  train_ratio: 0.8
+  feature_window: 50
+  feature_subset:
+    - log_return
+    - rolling_volatility
+    - sma_ratio
+    - ema_ratio
+    - rsi
+    - macd
+    - macd_signal
+    - macd_hist
+    - stoch_k
+    - stoch_d
+    - williams_r
+    - roc
+    - bb_percent
+    - bb_width
+    - bb_zscore
+    - atr_ratio
+    - adx
+    - plus_di
+    - minus_di
+    - obv
+    - obv_pct
+    - mfi
+    - cci
+    - volume
+    - direction_prob
+    - sentiment
+  technical_indicators:
+    - rsi
+    - macd
+    - stochastic
+    - williams_r
+    - roc
+    - bollinger
+    - atr
+    - adx
+    - obv
+    - mfi
+    - cci
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.2
+  reward_metric: differential_log_return
+  window_size: 96
+  reward_positive: 1.6
+  reward_negative: -2.0
+  reward_scale: 0.9
+  action_threshold: 0.05
+  direction_reward_weight: 0.25
+  trade_penalty: 0.03
+  direction_prob_threshold: 0.55
+  direction_prob_tolerance: 0.05
+  cooldown_steps: 2
+  hold_bonus: 0.05
+  low_vol_direction_threshold: 0.60
+  low_vol_bonus: 0.06
+  low_vol_threshold: 0.15
+  volatility_lookback: 21
+  subthreshold_trade_penalty: 0.01
+
+agent:
+  algorithm: PPO
+  policy: MlpPolicy
+  learning_rate: 0.000201
+  n_steps: 2048
+  batch_size: 64
+  gamma: 0.991
+  gae_lambda: 0.943
+  clip_range: 0.298
+  ent_coef: 0.000982
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  total_timesteps: 1000000
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2022-01-03
+  evaluation_end: 2024-12-31

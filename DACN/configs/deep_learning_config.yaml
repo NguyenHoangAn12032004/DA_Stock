@@ -1,0 +1,38 @@
+project:
+  seed: 42
+  log_dir: logs/deep_learning
+  model_dir: models/deep_learning
+  figure_dir: reports/figures/deep_learning
+
+data:
+  tickers: [AAPL, NVDA, GOOG]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  window_size: 60  # Lookback window for sequence
+  prediction_horizon: 1 # Predict next day
+  train_split: 0.8
+  features:
+    - Close
+    - Volume
+    - rsi
+    - macd
+    - macd_signal
+    - atr
+    - sentiment # Compound sentiment score
+    - sentiment_ma_5 # Moving average of sentiment
+    - sentiment_vol_5 # Volatility of sentiment
+
+model:
+  type: LSTM # or GRU
+  input_size: 9 # Number of features
+  hidden_size: 64
+  num_layers: 2
+  dropout: 0.2
+  output_size: 1 # Binary classification (Up/Down)
+
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  epochs: 50
+  patience: 10 # Early stopping

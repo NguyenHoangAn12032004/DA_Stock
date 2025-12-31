@@ -1,0 +1,95 @@
+project:
+  seed: 42
+  log_dir: logs/goog/post2022_finetune
+  model_dir: models/goog/post2022_finetune
+  figure_dir: reports/figures/goog
+
+data:
+  tickers: [GOOG]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  dataset_path: data/processed/goog/goog_1d.npz
+  train_ratio: 0.88
+  feature_window: 50
+  feature_subset:
+    - log_return
+    - rolling_volatility
+    - sma_ratio
+    - ema_ratio
+    - rsi
+    - macd
+    - macd_signal
+    - macd_hist
+    - stoch_k
+    - stoch_d
+    - williams_r
+    - roc
+    - bb_percent
+    - bb_width
+    - bb_zscore
+    - atr_ratio
+    - adx
+    - plus_di
+    - minus_di
+    - obv
+    - obv_pct
+    - mfi
+    - cci
+    - volume
+    - direction_prob
+  technical_indicators:
+    - rsi
+    - macd
+    - stochastic
+    - williams_r
+    - roc
+    - bollinger
+    - atr
+    - adx
+    - obv
+    - mfi
+    - cci
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.2
+  reward_metric: differential_log_return
+  window_size: 96
+  reward_positive: 1.4
+  reward_negative: -3.0
+  reward_scale: 0.7
+  action_threshold: 0.1
+  direction_reward_weight: 0.25
+  trade_penalty: 0.045
+  direction_prob_threshold: 0.68
+  cooldown_steps: 6
+  hold_bonus: 0.02
+
+agent:
+  algorithm: PPO
+  total_timesteps: 200000
+  learning_rate: 0.000012
+  learning_rate_end: 0.000006
+  gamma: 0.985
+  gae_lambda: 0.95
+  clip_range: 0.18
+  n_steps: 512
+  batch_size: 512
+  ent_coef: 0.0025
+  ent_coef_end: 0.001
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  eval_freq: 20000
+  policy_kwargs:
+    net_arch:
+      pi: [256, 128]
+      vf: [256, 128]
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2022-01-03
+  evaluation_end: 2024-12-31

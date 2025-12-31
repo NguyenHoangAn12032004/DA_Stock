@@ -1,0 +1,111 @@
+project:
+  seed: 42
+  log_dir: logs/nvda
+  model_dir: models/nvda
+  figure_dir: reports/figures/nvda
+
+data:
+  tickers: [NVDA]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  dataset_path: data/processed/nvda/nvda_1d.npz
+  train_ratio: 0.8
+  feature_window: 50
+  feature_subset:
+    - log_return
+    - rolling_volatility
+    - sma_ratio
+    - ema_ratio
+    - rsi
+    - macd
+    - macd_signal
+    - macd_hist
+    - stoch_k
+    - stoch_d
+    - williams_r
+    - roc
+    - bb_percent
+    - bb_width
+    - bb_zscore
+    - atr_ratio
+    - adx
+    - plus_di
+    - minus_di
+    - obv
+    - obv_pct
+    - mfi
+    - cci
+    - volume
+    - volume_ma_ratio
+    - volume_zscore
+    - volume_trend
+    - momentum_20
+    - momentum_50
+    - return_5
+    - return_21
+    - volatility_ratio
+    - direction_prob
+  technical_indicators:
+    - rsi
+    - macd
+    - stochastic
+    - williams_r
+    - roc
+    - bollinger
+    - atr
+    - adx
+    - obv
+    - mfi
+    - cci
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.22
+  reward_metric: differential_log_return
+  window_size: 96
+  reward_positive: 1.6
+  reward_negative: -2.0
+  reward_scale: 0.9
+  action_threshold: 0.18
+  direction_reward_weight: 0.25
+  trade_penalty: 0.08
+  direction_prob_threshold: 0.75
+  direction_prob_tolerance: 0.08
+  cooldown_steps: 8
+  hold_bonus: 0.0
+  # Debug + FP filter (relaxed conditions)
+  debug_flags_enabled: true
+  fp_filter_enabled: true
+  fp_filter_rsi_threshold: 75.0
+  fp_filter_bb_percent_threshold: 0.9
+  fp_filter_macd_hist_threshold: 0.02
+  fp_filter_min_conditions: 1
+  fp_filter_require_high_prob: true
+  fp_filter_high_prob_threshold: 0.75
+
+agent:
+  algorithm: PPO
+  total_timesteps: 400000
+  learning_rate: 0.0000185
+  gamma: 0.985
+  gae_lambda: 0.95
+  clip_range: 0.18
+  n_steps: 512
+  batch_size: 512
+  ent_coef: 0.0004
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  eval_freq: 25000
+  policy_kwargs:
+    net_arch:
+      pi: [256, 128]
+      vf: [256, 128]
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: false
+  evaluation_start: 2022-01-03
+  evaluation_end: 2024-12-31

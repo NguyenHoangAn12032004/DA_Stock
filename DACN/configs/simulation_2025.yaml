@@ -1,0 +1,73 @@
+project:
+  seed: 42
+  log_dir: logs
+  model_dir: models
+  figure_dir: reports/figures
+
+data:
+  tickers: [AAPL, NVDA, GOOG]
+  start: 2010-01-01
+  end: 2024-12-31 # Used for loading dataset structure from .npz
+  interval: 1d
+  dataset_path: data/processed/aapl_nvda_goog_daily.npz
+  train_ratio: 0.8
+  feature_window: 50
+  technical_indicators:
+    - rsi
+    - macd
+    - stochastic
+    - williams_r
+    - roc
+    - bollinger
+    - atr
+    - adx
+    - obv
+    # market_regime is auto-added by loader, but listing explicitly is fine
+    - market_regime
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.8 # INCREASED: Allow heavy concentration/leverage
+  reward_metric: directional
+  window_size: 64
+  reward_positive: 1.5
+  reward_negative: -3.0
+  reward_scale: 1.0
+  action_threshold: 0.1
+  direction_reward_weight: 0.5
+  trade_penalty: 0.1
+  direction_prob_threshold: 0.55
+  
+  # --- Regime Components ---
+  # Enable dynamic gating
+  regime_gating_enabled: true
+  regime_threshold_delta: 0.20 # INCREASED: Much easier to buy in Bull (0.55 - 0.20 = 0.35)
+  
+  # Enable position scaling (V4/V5)
+  enable_regime_scaling: true
+  
+  # Aggressive Bull Logic (V5)
+  bull_regime_threshold: 0.0     # Price > SMA200 -> Bull
+  bull_slippage_mult: 0.5        # 50% less slippage penalty in Bull
+  bull_trade_mult: 0.1           # DECREASED: Almost no penalty for active trading in Bull
+  
+  # Reward shaping (Environment-side only, doesn't affect pretrained model eval but required for config consistency)
+  regime_reward_k: 0.0 
+
+  # Override: Force participation in Bull
+  override_gating_enabled: true
+  override_force_active: true
+  override_min_abs_weight: 0.5
+  override_ignore_dpt: true
+
+agent:
+  algorithm: PPO 
+  # Other agent params ignored during load/eval
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2022-01-01
+  evaluation_end: 2025-11-30

@@ -1,0 +1,43 @@
+assets:
+  AAPL:
+    mode: prod           # prod | limited | disabled
+    config: configs/aapl_prod.yaml
+    model_path: models/aapl/best_model.zip
+  NVDA:
+    mode: prod
+    config: configs/nvda.yaml
+    model_path: models/nvda/best_model.zip
+  GOOG:
+    mode: prod
+    config: configs/goog.yaml
+    model_path: models/goog/best_model.zip
+  PHASE7_MASTER:
+    mode: prod
+    config: configs/rl_enhanced.yaml
+    model_path: models_phase7/ppo_trading.zip
+
+market_stream:
+  poll_interval: 30    # seconds
+  lookback_days: 30
+  directional:
+    # Safer execution thresholds (wider HOLD band)
+    buy_threshold: 0.68      # require >= 68% to BUY
+    sell_threshold: 0.32     # require <= 32% to SELL
+    min_samples: 180         # more data to train logistic model
+    retrain_interval: 30     # retrain less frequently to reduce noise
+
+advice:
+  metrics_path: reports/forward_paper/forward_metrics.csv
+  thresholds:
+    buy_sharpe: 1.5
+    hold_sharpe: 0.1
+    min_total_return: 0.0
+    min_trades: 5
+    max_cost_ratio: 0.25
+
+auth:
+  # Token required to access WS for assets in 'limited' mode (e.g., NVDA)
+  limited_token: "nvda-limited-demo-token-2025"
+
+auth:
+  limited_token: ""   # If set, required as ?token=... for limited assets WebSocket

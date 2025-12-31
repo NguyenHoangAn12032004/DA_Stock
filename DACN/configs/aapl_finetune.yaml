@@ -1,0 +1,101 @@
+project:
+  seed: 42
+  log_dir: logs/aapl/finetune
+  model_dir: models/aapl/finetune
+  figure_dir: reports/figures/aapl
+
+data:
+  tickers: [AAPL]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  dataset_path: data/processed/aapl/aapl_1d.npz
+  train_ratio: 0.85
+  feature_window: 50
+  feature_subset:
+    - log_return
+    - rolling_volatility
+    - sma_ratio
+    - ema_ratio
+    - rsi
+    - macd
+    - macd_signal
+    - macd_hist
+    - stoch_k
+    - stoch_d
+    - williams_r
+    - roc
+    - bb_percent
+    - bb_width
+    - bb_zscore
+    - atr_ratio
+    - adx
+    - plus_di
+    - minus_di
+    - obv
+    - obv_pct
+    - mfi
+    - cci
+    - volume
+    - direction_prob
+  technical_indicators:
+    - rsi
+    - macd
+    - stochastic
+    - williams_r
+    - roc
+    - bollinger
+    - atr
+    - adx
+    - obv
+    - mfi
+    - cci
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.25
+  reward_metric: differential_log_return
+  window_size: 64
+  reward_positive: 1.15
+  reward_negative: -3.2
+  reward_scale: 0.9
+  action_threshold: 0.038
+  direction_reward_weight: 0.32
+  trade_penalty: 0.022
+  direction_prob_threshold: 0.68
+  direction_prob_tolerance: 0.04
+  low_vol_direction_threshold: 0.85
+  cooldown_steps: 5
+  hold_bonus: 0.11
+  low_vol_bonus: 0.07
+  low_vol_threshold: 0.2
+  volatility_lookback: 21
+
+agent:
+  algorithm: PPO
+  total_timesteps: 160000
+  learning_rate: 0.000007
+  learning_rate_end: 0.000003
+  gamma: 0.99
+  gae_lambda: 0.92
+  clip_range: 0.18
+  n_steps: 512
+  batch_size: 512
+  ent_coef: 0.000012
+  ent_coef_end: 0.000004
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  chunk_size: 40000
+  eval_freq: 20000
+  policy_kwargs:
+    net_arch:
+      pi: [256, 128]
+      vf: [256, 128]
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2023-01-01
+  evaluation_end: 2024-12-31

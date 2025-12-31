@@ -1,0 +1,77 @@
+project:
+  seed: 42
+  log_dir: logs/aapl_tradeup_dynstd_macd
+  model_dir: models/aapl
+  figure_dir: reports/figures/aapl_tradeup_dynstd_macd
+
+data:
+  tickers: [AAPL]
+  start: 2010-01-01
+  end: 2024-12-31
+  interval: 1d
+  dataset_path: data/processed/aapl/aapl_1d.npz
+  train_ratio: 0.8
+  feature_window: 50
+
+environment:
+  initial_cash: 100000
+  transaction_cost: 0.001
+  max_position: 0.35
+  reward_metric: differential_log_return
+  window_size: 64
+  reward_positive: 1.15
+  reward_negative: -3.2
+  reward_scale: 0.9
+  action_threshold: 0.03
+  direction_reward_weight: 0.23633330422760432
+  trade_penalty: 0.03
+  direction_prob_threshold: 0.68
+  direction_prob_tolerance: 0.03
+  cooldown_steps: 2
+  low_vol_direction_threshold: 0.72
+  hold_bonus: 0.11
+  low_vol_bonus: 0.06266919120657652
+  low_vol_threshold: 0.30
+  volatility_lookback: 21
+  subthreshold_trade_penalty: 0.02
+  # Dynamic threshold settings (enhanced)
+  dynamic_threshold_enabled: true
+  dynamic_threshold_vol_quantile: 0.66
+  dynamic_threshold_reduction: 0.02
+  dynamic_vol_proxy: std
+  dynamic_vol_lookback: 60
+  # MACD weakening filter (auto-detect macd_hist index from feature_names if not provided)
+  macd_weakening_block_enabled: true
+  macd_weakening_scale: 0.0     # 0 => block trades when weakening
+  macd_weakening_lookback: 1
+
+agent:
+  algorithm: PPO
+  total_timesteps: 450000
+  learning_rate: 0.00010113133051262839
+  learning_rate_end: 7.062126016910142e-05
+  gamma: 0.9827835599715234
+  gae_lambda: 0.9693657854864083
+  clip_range: 0.26202267893583614
+  n_steps: 512
+  batch_size: 512
+  ent_coef: 0.0029161432770697304
+  ent_coef_end: 0.0007823370044191627
+  vf_coef: 0.6807867509030814
+  max_grad_norm: 0.6183170677744404
+  eval_freq: 25000
+  policy_kwargs:
+    net_arch:
+      pi: [256, 128]
+      vf: [256, 128]
+
+training:
+  train_start_date: 2023-01-01
+  train_end_date: 2024-12-31
+
+backtest:
+  benchmark: buy_and_hold
+  render: false
+  save_plots: true
+  evaluation_start: 2023-01-01
+  evaluation_end: 2024-12-31

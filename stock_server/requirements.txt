@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+vnstock
+pandas
+yfinance
+requests
+pandas_datareader
+redis
+firebase-admin
