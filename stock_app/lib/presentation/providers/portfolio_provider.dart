@@ -9,6 +9,8 @@ import '../../domain/usecases/get_portfolio_usecase.dart';
 import 'auth_provider.dart';
 import 'order_provider.dart'; 
 import 'market_provider.dart';
+import 'settings_provider.dart';
+import '../../core/utils/currency_helper.dart';
 
 part 'portfolio_provider.g.dart';
 
@@ -121,23 +123,17 @@ class PortfolioController extends _$PortfolioController {
 
     // 2. Fetch Real-time Quotes for Holdings
     final symbols = portfolio!.holdings.map((h) => h.symbol).toList();
-    Map<String, double> currentPrices = {};
+    Map<String, double> currentPrices = {}; // Stores CONVERTED prices 
+    Map<String, double> rawPrices = {}; // Stores RAW prices (for backup)
 
     if (symbols.isNotEmpty) {
-       // We use the usecase from MarketProvider (imported via provider)
-       // Need to import GetRealtimeQuotesUseCase provider or class
-       // It's locally available in this file? No, we need to import it properly or use the one defined in market_provider.dart if exported.
-       // Actually I can just read the repo or usecase directly if I inject it.
-       // I need to add `import '../../presentation/providers/market_provider.dart';` or define the provider access here.
-       // It seems `market_provider.dart` defines `getRealtimeQuotesUseCaseProvider`. Let's assume it's imported or I will add import.
-       
        try {
          final quotesResult = await ref.read(marketRepositoryProvider).getRealtimeQuotes(symbols);
          quotesResult.fold(
            (l) => print("Quotes error: $l"),
            (r) {
              for (var stock in r) {
-               currentPrices[stock.symbol] = stock.price;
+               rawPrices[stock.symbol] = stock.price;
              }
            }
          );
@@ -146,27 +142,32 @@ class PortfolioController extends _$PortfolioController {
        }
     }
 
-    // 3. Calculate Real-time Equity & PnL
+    // 3. Calculate Real-time Equity & PnL (With FX Conversion)
+    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    
     double invested = 0;
     double currentHoldingsValue = 0;
 
     for (var h in portfolio!.holdings) {
-      invested += h.quantity * h.averagePrice;
+      // Convert Average Price (Cost)
+      final avgPriceConverted = CurrencyHelper.convert(h.averagePrice, symbol: h.symbol, language: language);
+      invested += h.quantity * avgPriceConverted;
       
-      final price = currentPrices[h.symbol] ?? h.averagePrice; // Fallback to avg if no quote
-      currentHoldingsValue += h.quantity * price;
+      // Get Raw Price -> Convert
+      final rawPrice = rawPrices[h.symbol] ?? h.averagePrice;
+      final priceConverted = CurrencyHelper.convert(rawPrice, symbol: h.symbol, language: language);
+      
+      currentPrices[h.symbol] = priceConverted;
+      currentHoldingsValue += h.quantity * priceConverted;
     }
 
-    final double cash = portfolio!.balance;
-    final double totalEquity = cash + currentHoldingsValue;
-    final double totalPnL = totalEquity - (cash + invested); // (Cash + RealValue) - (Cash + Cost) = RealValue - Cost
-    // Or simpler: currentHoldingsValue - invested.
-    // Wait: Total PnL usually means PnL of the Portfolio. 
-    // If I successfully sold, that profit is in Cash. 
-    // So PnL is (CurrentEquity - InitialDeposit). But we don't track InitialDeposit.
-    // We can only track "Unrealized PnL" of current holdings.
-    // Let's stick to "Unrealized PnL" which is (CurrentHoldingsValue - CostOfHoldings).
+    // Convert Cash
+    // Cash is assumed 'VND' units (Local).
+    final double cash = CurrencyHelper.convert(portfolio!.balance, symbol: 'VND', language: language);
     
+    final double totalEquity = cash + currentHoldingsValue;
+    
+    // PnL (Unrealized)
     final double unrealizedPnL = currentHoldingsValue - invested;
     final double unrealizedPnLPercent = invested > 0 ? (unrealizedPnL / invested) * 100 : 0.0;
 
@@ -176,18 +177,10 @@ class PortfolioController extends _$PortfolioController {
       orders: orders,
       cashBalance: cash,
       invested: invested,
-      totalEquity: totalEquity, // Cash + Market Value of Stocks
+      totalEquity: totalEquity, 
       totalPnL: unrealizedPnL,
       totalPnLPercent: unrealizedPnLPercent,
-      // We might want to pass currentPrices to UI to show per-stock value?
-      // For now, UI calculates per-stock value? No, Entity doesn't have currentPrice.
-      // We might need to enrich the HoldingEntity or pass a map. 
-      // Let's just update the State to potentially include a map of prices? 
-      // Or we assume the UI fetches quotes separately? No, better here.
-      // For MVP, knowing the Total Equity is key. 
-      // Individual items in UI might look "stale" (using avg price) if we don't update them.
-      // Let's rely on MarketProvider's stream for the list items!
-      // But the Total Header needs this calc.
+      currentPrices: currentPrices, // Now holds Converted Prices
     );
   }
 

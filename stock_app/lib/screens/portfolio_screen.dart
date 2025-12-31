@@ -10,6 +10,7 @@ import '../presentation/providers/order_provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../presentation/providers/settings_provider.dart';
 import '../theme/app_colors.dart';
+import '../core/utils/currency_helper.dart';
 
 class PortfolioScreen extends ConsumerStatefulWidget {
   const PortfolioScreen({super.key});
@@ -209,10 +210,14 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
     final locale = isVietnamese ? 'vi_VN' : 'en_US';
     final symbol = isVietnamese ? '₫' : '\$';
 
-    // Determine real-time value
-    final currentPrice = currentPrices[holding.symbol] ?? holding.averagePrice;
+    // Cost Basis (Need to convert RAW averagePrice to Target Currency)
+    final avgPriceConverted = CurrencyHelper.convert(holding.averagePrice, symbol: holding.symbol, language: language);
+    
+    // Current Market Value (Already converted in Provider)
+    final currentPrice = currentPrices[holding.symbol] ?? avgPriceConverted;
+    
     final totalValue = holding.quantity * currentPrice;
-    final investedValue = holding.quantity * holding.averagePrice;
+    final investedValue = holding.quantity * avgPriceConverted;
     final pnl = totalValue - investedValue;
     final pnlPercent = investedValue > 0 ? (pnl / investedValue) * 100 : 0.0;
     
@@ -300,9 +305,6 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
   Widget _buildOrderItem(OrderEntity order, bool isDark) {
      // 1. Localization
      final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
-     final isVietnamese = language == 'Vietnamese';
-     final locale = isVietnamese ? 'vi_VN' : 'en_US';
-     final symbol = isVietnamese ? '₫' : '\$';
      
      final isBuy = order.side == OrderSide.buy;
      final statusColor = _getStatusColor(order.status);
@@ -323,12 +325,12 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                "${order.quantity} @ ${NumberFormat.currency(locale: locale, symbol: symbol).format(order.price)}",
+                "${order.quantity} @ ${CurrencyHelper.format(order.price, symbol: order.symbol, language: language)}",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
               ),
               const SizedBox(height: 2),
               Text(
-                NumberFormat.currency(locale: locale, symbol: symbol).format(order.price * order.quantity),
+                CurrencyHelper.format(order.price * order.quantity, symbol: order.symbol, language: language),
                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isBuy ? AppColors.danger : AppColors.success), 
               ),
               const SizedBox(height: 4),

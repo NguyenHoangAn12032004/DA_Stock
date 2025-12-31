@@ -11,6 +11,8 @@ import '../theme/app_colors.dart';
 import '../widgets/ai_prediction_card.dart';
 import 'add_alert_bottom_sheet.dart';
 import '../core/utils/stock_utils.dart';
+import '../core/utils/currency_helper.dart'; 
+import '../presentation/providers/settings_provider.dart';
 
 class StockDetailScreen extends ConsumerStatefulWidget {
   final String symbol;
@@ -252,6 +254,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
   Widget _buildHeaderStats(bool isDark) {
     // Watch realtime data
     final stockListAsync = ref.watch(stockListNotifierProvider);
+    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
     
     return stockListAsync.when(
       data: (stocks) {
@@ -277,7 +280,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    StockUtils.formatPrice(_currentSymbol, stock.price),
+                    CurrencyHelper.format(stock.price, symbol: _currentSymbol, language: language),
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -300,6 +303,8 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                   // Format Volume as well? Usually compact is fine (1M, 200K).
+                   // Maybe just localize NumberFormat if really needed, but 'K'/'M' is universal enough.
                   Text('Vol: ${NumberFormat.compact().format(stock.volume)}', style: const TextStyle(fontSize: 12)),
                 ],
               ),

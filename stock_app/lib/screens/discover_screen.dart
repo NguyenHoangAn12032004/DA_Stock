@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
 import 'stock_detail_screen.dart';
+import '../core/utils/currency_helper.dart';
+import '../presentation/providers/settings_provider.dart';
 
-class DiscoverScreen extends StatefulWidget {
+class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
 
   @override
-  State<DiscoverScreen> createState() => _DiscoverScreenState();
+  ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
-class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProviderStateMixin {
+class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -48,6 +51,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    // Trigger Forex fetch if not already done.
+    // Provider auto-fetches when watched. We'll watch in build.
   }
 
   @override
@@ -138,6 +143,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
   }
 
   Widget _buildStockList(bool isDark, String type) {
+    // Watch language
+    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    // Watch Forex to trigger update
+    ref.watch(forexRateProvider); // Fire and forget (it updates Helper static)
+
     final stocks = _getFilteredStocks(type);
 
     if (stocks.isEmpty) {
@@ -159,6 +169,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         final stock = stocks[index];
         final isUp = stock['change'] >= 0;
         final color = isUp ? AppColors.success : AppColors.danger;
+        final price = (stock['price'] as num).toDouble();
 
         return InkWell(
           onTap: () {
@@ -226,9 +237,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      stock['type'] == 'VN' 
-                        ? '${stock['price']} ₫' 
-                        : '\$${stock['price']}',
+                      CurrencyHelper.format(price, symbol: stock['symbol'], language: language),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,

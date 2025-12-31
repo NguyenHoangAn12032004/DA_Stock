@@ -4,6 +4,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../data/datasources/settings_local_datasource.dart';
 import '../../data/repositories/settings_repository_impl.dart';
 import '../../domain/repositories/settings_repository.dart';
+import '../../data/datasources/forex_service.dart';
+import '../../core/utils/currency_helper.dart';
 
 part 'settings_provider.g.dart';
 
@@ -111,3 +113,14 @@ class AiInsightsController extends _$AiInsightsController {
     await ref.read(settingsRepositoryProvider).setAiInsightsEnabled(enabled);
   }
 }
+
+// Forex Rate Provider (Manual definition to avoid build_runner wait)
+final forexRateProvider = FutureProvider<double>((ref) async {
+  final service = ForexService();
+  final rate = await service.getUsdVndRate();
+  if (rate != null) {
+    CurrencyHelper.updateExchangeRate(rate);
+    return rate;
+  }
+  return CurrencyHelper.exchangeRate; 
+});

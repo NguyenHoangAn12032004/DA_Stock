@@ -8,12 +8,16 @@ import '../../screens/stock_detail_screen.dart'; // Ensure correct import path
 import '../../screens/stock_detail_screen.dart'; 
 import '../../theme/app_colors.dart';
 
+import '../../core/utils/currency_helper.dart';
+import '../providers/settings_provider.dart';
+
 class StockListWidget extends ConsumerWidget {
   const StockListWidget({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stockIds = ref.watch(stockListNotifierProvider);
+    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
@@ -48,7 +52,7 @@ class StockListWidget extends ConsumerWidget {
                 final stock = stocks[index];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _buildStockCard(context, stock, isDark),
+                  child: _buildStockCard(context, stock, isDark, language),
                 );
               },
             );
@@ -71,7 +75,7 @@ class StockListWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildStockCard(BuildContext context, StockEntity stock, bool isDark) {
+  Widget _buildStockCard(BuildContext context, StockEntity stock, bool isDark, String language) {
     final isUp = stock.changePercent >= 0;
     final color = isUp ? AppColors.success : AppColors.danger;
 
@@ -143,7 +147,7 @@ class StockListWidget extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '\$${stock.price.toStringAsFixed(2)}',
+                  CurrencyHelper.format(stock.price, symbol: stock.symbol, language: language),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
