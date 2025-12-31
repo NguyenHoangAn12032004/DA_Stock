@@ -66,6 +66,8 @@ dependencies:
   candlesticks: ^2.1.0
   firebase_messaging: ^16.1.0
   flutter_local_notifications: ^19.5.0
+  url_launcher: ^6.3.2
+  youtube_player_flutter: ^9.1.3
 
 dev_dependencies:
   flutter_test:

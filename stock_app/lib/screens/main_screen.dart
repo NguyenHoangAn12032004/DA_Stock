@@ -182,7 +182,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           }, isDark),
           _buildDrawerItem(Icons.school_outlined, 'Learning Center', () {
             Navigator.pop(context);
-            _onItemTapped(2); // Switch to News/Learn tab
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LearningScreen()),
+            );
           }, isDark),
           _buildDrawerItem(Icons.pie_chart_outline, 'My Portfolio', () {
             Navigator.pop(context);
