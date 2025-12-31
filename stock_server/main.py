@@ -148,8 +148,9 @@ async def fetch_real_price(symbol: str):
                     info = ticker.fast_info
                     p = info.last_price
                     prev_close = info.previous_close
+                    volume = int(info.last_volume) if info.last_volume else 0
                     change = ((p - prev_close) / prev_close) * 100 if prev_close else 0.0
-                    return p, 0, change
+                    return p, volume, change
                 except Exception as e:
                     # print(f"YF Price Error {symbol}: {e}")
                     return None
