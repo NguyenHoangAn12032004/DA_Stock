@@ -5,6 +5,7 @@ import '../../domain/entities/order_entity.dart';
 abstract class OrderRemoteDataSource {
   Future<OrderEntity> placeOrder(OrderEntity order);
   Future<List<OrderEntity>> getOrders(String userId);
+  Future<void> cancelOrder(String userId, String orderId);
 }
 
 class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
@@ -35,7 +36,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           symbol: data['symbol'],
           side: data['side'] == 'buy' ? OrderSide.buy : OrderSide.sell,
           quantity: data['quantity'],
-          price: (data['price'] as num).toDouble(),
+            price: double.tryParse(data['price'].toString()) ?? 0.0,
           type: data['order_type'] == 'market' ? OrderType.market : OrderType.limit,
           status: OrderStatus.pending, // Default for now
           timestamp: data['timestamp'],
@@ -62,14 +63,28 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             symbol: data['symbol'],
             side: data['side'] == 'buy' ? OrderSide.buy : OrderSide.sell,
             quantity: int.tryParse(data['quantity'].toString()) ?? 0,
-            price: (data['price'] as num).toDouble(),
+              price: double.tryParse(data['price'].toString()) ?? 0.0,
             type: data['order_type'] == 'market' ? OrderType.market : OrderType.limit,
-            status: data['status'] == 'matched' ? OrderStatus.matched : OrderStatus.pending,
+            status: data['status'] == 'matched' ? OrderStatus.matched : (data['status'] == 'cancelled' ? OrderStatus.canceled : OrderStatus.pending),
             timestamp: int.tryParse(data['timestamp'].toString()) ?? 0,
           );
         }).toList();
       } else {
         throw ServerFailure('Failed to fetch orders');
+      }
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
+    @override
+  Future<void> cancelOrder(String userId, String orderId) async {
+    try {
+      final response = await _dioClient.dio.post(
+        '/api/orders/cancel',
+        data: {'user_id': userId, 'order_id': orderId},
+      );
+      if (response.statusCode != 200) {
+         throw ServerFailure('Failed to cancel order');
       }
     } catch (e) {
       throw ServerFailure(e.toString());

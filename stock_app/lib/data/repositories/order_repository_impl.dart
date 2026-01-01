@@ -28,4 +28,13 @@ class OrderRepositoryImpl implements OrderRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+  @override
+  Future<Either<Failure, void>> cancelOrder(String userId, String orderId) async {
+    try {
+      await _remoteDataSource.cancelOrder(userId, orderId);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }

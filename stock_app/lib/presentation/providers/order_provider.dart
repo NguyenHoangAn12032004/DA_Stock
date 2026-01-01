@@ -27,6 +27,13 @@ PlaceOrderUseCase placeOrderUseCase(PlaceOrderUseCaseRef ref) {
 
 // --- Controller ---
 
+final userOrdersProvider = FutureProvider.family<List<OrderEntity>, String>((ref, userId) async {
+  final repo = ref.watch(orderRepositoryProvider);
+  final result = await repo.getOrders(userId);
+  return result.fold((l) => [], (r) => r); 
+});
+
+
 @riverpod
 class OrderController extends _$OrderController {
   @override
@@ -59,7 +66,26 @@ class OrderController extends _$OrderController {
 
     result.fold(
       (failure) => state = AsyncError(failure.message, StackTrace.current),
-      (success) => state = const AsyncData(null),
+      (success) { 
+        state = const AsyncData(null);
+        ref.invalidate(userOrdersProvider(userId));
+      }
+    );
+  }
+
+  Future<void> cancelOrder(String userId, String orderId) async {
+    state = const AsyncLoading();
+    // Assuming repo has cancelOrder. If not, will fix in next step.
+    final result = await ref.read(orderRepositoryProvider).cancelOrder(userId, orderId);
+    
+    result.fold(
+      (failure) => state = AsyncError(failure.message, StackTrace.current),
+      (success) async {
+         state = const AsyncData(null);
+         // Wait for backend to propagate change (Eventual Consistency)
+         await Future.delayed(const Duration(milliseconds: 500));
+         ref.invalidate(userOrdersProvider(userId));
+      }
     );
   }
 }

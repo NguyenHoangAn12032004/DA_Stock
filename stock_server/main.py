@@ -606,7 +606,7 @@ def fetch_stock_history_yfinance(symbol: str, start_date: str, end_date: str, re
         # Map resolution
         interval_map = {
             '1D': '1d', '1W': '1wk', '1M': '1mo',
-            '15m': '15m', '30m': '30m', '1H': '60m'
+            '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m', '1H': '60m'
         }
         interval = interval_map.get(resolution, '1d')
         
@@ -660,6 +660,17 @@ async def get_stock_history(symbol: str, start_date: str, end_date: str, resolut
     print(f"📥 [API] Received history request for: '{symbol}'")
     symbol = symbol.strip().upper()
     
+    # 0. Check Redis Cache
+    cache_key = f"acc8_hist:{symbol}:{start_date}:{end_date}:{resolution}"
+    try:
+        if r:
+            cached_data = r.get(cache_key)
+            if cached_data:
+                print(f"✅ [Cache] Hit for {cache_key}")
+                return json.loads(cached_data)
+    except Exception as e:
+        print(f"⚠️ Cache Error: {e}")
+
     # 1. Priorities: VNStock for VN, YFinance for everything else
     
     # VN Stock Logic
@@ -679,16 +690,32 @@ async def get_stock_history(symbol: str, start_date: str, end_date: str, resolut
                              
                      return json.loads(df.to_json(orient="records"))
                  return None
-             except: return None
+             except Exception as e:
+                 print(f"VNStock Fetch Error: {e}") 
+                 return None
          
          data = await asyncio.to_thread(fetch_vn)
-         if data: return {"symbol": symbol, "source": "Vnstock", "data": data}
+         if data: 
+             result = {"symbol": symbol, "source": "Vnstock", "data": data}
+             # Cache Result
+             if r:
+                 # TTL: 1h for old data, 1m for active day
+                 ttl = 60 if resolution in ["1m", "5m", "15m", "1H"] else 300 
+                 r.setex(cache_key, ttl, json.dumps(result))
+             return result
          # Fallback to YFinance if Vnstock fails
          
     # YFinance Logic (Universal Fallback)
-    data = await asyncio.to_thread(fetch_stock_history_yfinance, symbol, start_date, end_date, resolution)
-    if data:
-        return {"symbol": symbol, "source": "YFinance", "data": data}
+    try:
+        data = await asyncio.to_thread(fetch_stock_history_yfinance, symbol, start_date, end_date, resolution)
+        if data:
+            result = {"symbol": symbol, "source": "YFinance", "data": data}
+            if r:
+                ttl = 60 if resolution in ["1m", "5m", "15m", "30m", "1H"] else 300
+                r.setex(cache_key, ttl, json.dumps(result))
+            return result
+    except Exception as e:
+        print(f"❌ [API Error] YFinance Fallback Failed: {e}")
 
     # FAILED -> Return Empty, NO FAKE DATA
     print(f"❌ [History] Failed to fetch data for {symbol}. Returning empty.")
@@ -861,6 +888,60 @@ async def get_orders(user_id: str):
         return {"data": orders}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch orders: {str(e)}")
+
+class OrderCancelRequest(BaseModel):
+    user_id: str
+    order_id: str
+
+@app.post("/api/orders/cancel")
+async def cancel_order(req: OrderCancelRequest):
+    """
+    Hủy lệnh đang chờ (Pending).
+    - Hoàn tiền nếu là lệnh Mua.
+    - Cập nhật trạng thái Redis.
+    """
+    if not r:
+        raise HTTPException(status_code=503, detail="Redis not connected")
+        
+    try:
+        # 1. Get Order Details
+        order_key = f"order:{req.order_id}"
+        order_data = r.hgetall(order_key)
+        
+        if not order_data:
+            raise HTTPException(status_code=404, detail="Order not found")
+            
+        if order_data.get("status") != "pending":
+             raise HTTPException(status_code=400, detail="Cannot cancel completed or already cancelled order")
+             
+        if order_data.get("user_id") != req.user_id:
+             raise HTTPException(status_code=403, detail="Unauthorized")
+
+        # 2. Refund Logic (Firestore)
+        side = order_data.get("side")
+        price = float(order_data.get("price"))
+        quantity = int(order_data.get("quantity"))
+        total_val = price * quantity
+        
+        db = get_db()
+        if side == "buy" and db:
+             # Refund Money
+             user_ref = db.collection("users").document(req.user_id)
+             user_ref.update({"balance": firestore.Increment(total_val)})
+             print(f"💰 Refunded {total_val} to User {req.user_id}")
+        
+        # 3. Redis Cleanup
+        pipe = r.pipeline()
+        pipe.hset(order_key, "status", "cancelled")
+        pipe.srem("pending_orders", req.order_id)
+        pipe.execute()
+        
+        return {"status": "success", "message": "Order cancelled"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Cancel Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/orderbook/{symbol}")
 async def get_order_book(symbol: str):

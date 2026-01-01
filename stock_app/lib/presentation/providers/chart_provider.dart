@@ -15,14 +15,23 @@ class ChartState extends _$ChartState {
     DateTime startDate;
     String resolution = '1D';
 
-    switch (timeframe) {
+    // Handle composite timeframe: e.g., "1D|5m"
+    String activeTimeframe = timeframe;
+    String? customResolution;
+    if (timeframe.contains('|')) {
+      final parts = timeframe.split('|');
+      activeTimeframe = parts[0];
+      customResolution = parts[1];
+    }
+
+    switch (activeTimeframe) {
       case '1D':
         startDate = now.subtract(const Duration(days: 1));
-        resolution = '15m'; // Intraday
+        resolution = customResolution ?? '30m'; // Default Intraday to 30m
         break;
       case '1W':
         startDate = now.subtract(const Duration(days: 7));
-        resolution = '1H';
+        resolution = customResolution ?? '1H';
         break;
       case '1M':
         startDate = now.subtract(const Duration(days: 30));

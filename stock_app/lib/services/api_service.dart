@@ -34,9 +34,11 @@ class ApiService {
       final jsonResponse = jsonDecode(response.body);
       // Expected format from stock_server: { "symbol": "...", "source": "...", "data": [...] }
       final List<dynamic> data = jsonResponse['data'];
+      print('✅ getStockHistory: Loaded ${data.length} records');
       return data.map((json) => StockData.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load stock history');
+      print('❌ getStockHistory FAILED: ${response.statusCode} - ${response.body}');
+      throw Exception('Failed to load stock history: ${response.statusCode}');
     }
   }
 
@@ -202,6 +204,23 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to delete alert');
+    }
+  }
+  Future<Map<String, dynamic>> cancelOrder(String userId, String orderId) async {
+    final url = Uri.parse('$baseUrl/api/orders/cancel');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'order_id': orderId,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to cancel order: ${response.body}');
     }
   }
 }

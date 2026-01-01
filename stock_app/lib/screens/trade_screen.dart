@@ -37,9 +37,11 @@ import '../core/utils/stock_utils.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../presentation/providers/settings_provider.dart';
-import '../presentation/providers/portfolio_provider.dart'; // Ensure this is imported
-import '../presentation/providers/order_provider.dart';   // Should be added
+import '../presentation/providers/portfolio_provider.dart'; 
+import '../presentation/providers/order_provider.dart';   
 import '../core/utils/currency_helper.dart';
+import '../domain/entities/holding_entity.dart';
+import '../widgets/active_orders_widget.dart';
 
 class TradeScreen extends ConsumerStatefulWidget {
   final String symbol;
@@ -61,6 +63,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   String _selectedTimeframe = '1D';
+  String _selectedResolution = '30m';
   bool _isBuyMode = true;
   late String _currentSymbol;
   
@@ -95,8 +98,8 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       final data = _socketService.parseData(message);
       if (data != null && data['symbol'] == _currentSymbol) {
         setState(() {
-          _realtimePrice = (data['price'] as num).toDouble();
-          _realtimeChange = (data['change_percent'] as num).toDouble();
+          _realtimePrice = (data['price'] as num?)?.toDouble() ?? _realtimePrice;
+          _realtimeChange = (data['change_percent'] as num?)?.toDouble() ?? _realtimeChange;
         });
       }
     });
@@ -118,7 +121,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
           // Increase to 5 days to ensure we get at least 2-3 trading days for Stooq (Daily data)
           // even if there's a weekend. For Intraday (Yahoo/Binance), 5 days is a good "recent trend" view.
           startDate = now.subtract(const Duration(days: 5)); 
-          resolution = '15m'; 
+          resolution = _selectedResolution; 
           break;
         case '1W':
           startDate = now.subtract(const Duration(days: 7));
@@ -182,20 +185,44 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       return;
     }
 
+    // --- Validation Logic ---
     final quantity = int.tryParse(_quantityController.text);
     final price = double.tryParse(_priceController.text) ?? _realtimePrice ?? (_stockData.isNotEmpty ? _stockData.last.close : 0.0);
 
     if (quantity == null || quantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập số lượng hợp lệ')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập số lượng hợp lệ')));
       return;
     }
 
+    // Check Balance / Holdings
+    final portfolioAsync = ref.read(portfolioControllerProvider);
+    if (portfolioAsync.hasValue) {
+       final portfolio = portfolioAsync.value;
+       
+       if (_isBuyMode) {
+          final totalCost = price * quantity;
+          if ((portfolio?.portfolio?.balance ?? 0) < totalCost) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Số dư không đủ! (Cần: ${NumberFormat.simpleCurrency(name: 'VND').format(totalCost)})'), // Simple format
+              backgroundColor: Colors.red,
+            ));
+            return;
+          }
+       } else {
+          // Sell Mode: Check holdings
+          final holding = portfolio?.portfolio?.holdings.firstWhere((h) => h.symbol == _currentSymbol, orElse: () => const HoldingEntity(symbol: '', quantity: 0, averagePrice: 0));
+          if ((holding?.quantity ?? 0) < quantity) {
+             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Không đủ cổ phiếu để bán! (Có: ${holding?.quantity ?? 0})'),
+              backgroundColor: Colors.red,
+            ));
+            return;
+          }
+       }
+    }
+
     if (price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Giá không hợp lệ')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Giá không hợp lệ')));
       return;
     }
 
@@ -455,6 +482,8 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                             _buildTimeframeSelector(theme, isDark),
                             const Divider(),
                             _buildOrderSection(isDark),
+                            const Divider(),
+                            ActiveOrdersWidget(symbol: _currentSymbol),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -553,31 +582,54 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => setState(() => _isBuyMode = true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isBuyMode ? AppColors.success : inactiveColor,
-                          foregroundColor: _isBuyMode ? Colors.white : inactiveTextColor,
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.horizontal(left: Radius.circular(8)),
+                      child: InkWell(
+                        onTap: () => setState(() => _isBuyMode = true),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _isBuyMode ? AppColors.success.withOpacity(0.8) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _isBuyMode ? AppColors.success : Colors.grey.withOpacity(0.5),
+                              width: _isBuyMode ? 0 : 1
+                            ),
                           ),
-                          elevation: _isBuyMode ? 2 : 0,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'MUA',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _isBuyMode ? Colors.white : Colors.grey,
+                            ),
+                          ),
                         ),
-                        child: const Text('Mua'),
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => setState(() => _isBuyMode = false),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: !_isBuyMode ? AppColors.danger : inactiveColor,
-                          foregroundColor: !_isBuyMode ? Colors.white : inactiveTextColor,
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.horizontal(right: Radius.circular(8)),
+                      child: InkWell(
+                        onTap: () => setState(() => _isBuyMode = false),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: !_isBuyMode ? AppColors.danger.withOpacity(0.8) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: !_isBuyMode ? AppColors.danger : Colors.grey.withOpacity(0.5),
+                              width: !_isBuyMode ? 0 : 1
+                            ),
                           ),
-                          elevation: !_isBuyMode ? 2 : 0,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'BÁN',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: !_isBuyMode ? Colors.white : Colors.grey,
+                            ),
+                          ),
                         ),
-                        child: const Text('Bán'),
                       ),
                     ),
                   ],
@@ -630,25 +682,46 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                   ),
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 12),
-                Slider(
-                  value: 0,
-                  onChanged: (_) {},
-                  activeColor: activeColor,
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final portfolio = ref.watch(portfolioControllerProvider).valueOrNull;
+                      final isBuy = _isBuyMode;
+                      
+                      String text;
+                      if (isBuy) {
+                         final balance = portfolio?.portfolio?.balance ?? 0;
+                         // Format balance
+                         text = "Saldo: ${NumberFormat.compact().format(balance)} VND";
+                      } else {
+                         final holding = portfolio?.portfolio?.holdings.firstWhere(
+                           (h) => h.symbol == _currentSymbol, 
+                           orElse: () => const HoldingEntity(symbol: '', quantity: 0, averagePrice: 0)
+                         );
+                         text = "Đang có: ${holding?.quantity ?? 0} CP";
+                      }
+                      
+                      return Text(text, style: TextStyle(fontSize: 10, color: isBuy ? AppColors.success : Colors.orange));
+                    }
+                  ),
                 ),
+                const SizedBox(height: 12),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _handlePlaceOrder,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: activeColor,
+                      backgroundColor: _isBuyMode ? AppColors.success.withOpacity(0.9) : AppColors.danger.withOpacity(0.9),
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 2, // Slight elevation
                     ),
                     child: Text(
-                      '${_isBuyMode ? "Mua" : "Bán"} $_currentSymbol', 
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
+                      '${_isBuyMode ? "MUA" : "BÁN"} $_currentSymbol', 
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
                     ),
                   ),
                 ),
@@ -744,43 +817,92 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
 
   Widget _buildTimeframeSelector(ThemeData theme, bool isDark) {
     final timeframes = ['1D', '1W', '1M', '3M', '1Y', 'All'];
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: timeframes.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final tf = timeframes[index];
-          final isSelected = tf == _selectedTimeframe;
-          return ChoiceChip(
-            label: Text(tf),
-            selected: isSelected,
-            onSelected: (selected) {
-              if (selected && _selectedTimeframe != tf) {
-                setState(() {
-                  _selectedTimeframe = tf;
-                });
-                _fetchData();
-              }
+    return Column(
+      children: [
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: timeframes.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final tf = timeframes[index];
+              final isSelected = tf == _selectedTimeframe;
+              return ChoiceChip(
+                label: Text(tf == '1D' && isSelected ? '1D ▾' : tf),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() {
+                      _selectedTimeframe = tf;
+                      if (tf == '1D' && _selectedResolution.isEmpty) {
+                         _selectedResolution = '30m';
+                      }
+                    });
+                    _fetchData();
+                  }
+                },
+                backgroundColor: isDark ? const Color(0xFF1A2028) : Colors.white,
+                selectedColor: AppColors.success,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.success : (isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5)),
+                  ),
+                ),
+                showCheckmark: false,
+              );
             },
-            backgroundColor: isDark ? const Color(0xFF1A2028) : Colors.white,
-            selectedColor: AppColors.success,
-            labelStyle: TextStyle(
-              color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black),
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        if (_selectedTimeframe == '1D') ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 30,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: ['1m', '5m', '15m', '30m', '1H'].map((res) {
+                final isResSelected = res == _selectedResolution;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(res, style: const TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    selected: isResSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedResolution = res;
+                        });
+                        _fetchData();
+                      }
+                    },
+                    backgroundColor: isDark ? Colors.transparent : Colors.grey[200],
+                    selectedColor: AppColors.success.withOpacity(0.8),
+                    labelStyle: TextStyle(
+                      color: isResSelected ? Colors.white : (isDark ? Colors.grey : Colors.black87),
+                      fontWeight: isResSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: isResSelected ? Colors.transparent : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
+                    showCheckmark: false,
+                  ),
+                );
+              }).toList(),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(
-                color: isSelected ? AppColors.success : (isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5)),
-              ),
-            ),
-            showCheckmark: false,
-          );
-        },
-      ),
+          ),
+        ]
+      ],
     );
   }
 }

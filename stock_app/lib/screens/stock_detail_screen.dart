@@ -167,6 +167,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print("--- DEBUG: STOCK DETAIL SCREEN BUILD CALLED ---");
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF111418) : const Color(0xFFF6F7F8);
@@ -230,7 +231,9 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                     width: double.infinity,
                     child: StockChartWidget(
                       symbol: _currentSymbol,
-                      timeframe: _selectedTimeframe,
+                      timeframe: (_selectedTimeframe == '1D' && _selectedResolution.isNotEmpty)
+                        ? '1D|$_selectedResolution'
+                        : _selectedTimeframe,
                     ),
                   ),
                   _buildTimeframeSelector(theme, isDark),
@@ -350,45 +353,96 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
     );
   }
 
+  // State for intraday resolution
+  String _selectedResolution = '30m'; // Default
+
   Widget _buildTimeframeSelector(ThemeData theme, bool isDark) {
     final timeframes = ['1D', '1W', '1M', '3M', '1Y', 'All'];
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: timeframes.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final tf = timeframes[index];
-          final isSelected = tf == _selectedTimeframe;
-          return ChoiceChip(
-            label: Text(tf),
-            selected: isSelected,
-            onSelected: (selected) {
-              if (selected) {
-                setState(() {
-                  _selectedTimeframe = tf;
-                });
-                // Provider automatically refetches
-              }
+    return Column(
+      children: [
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: timeframes.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final tf = timeframes[index];
+              final isSelected = tf == _selectedTimeframe;
+              return ChoiceChip(
+                label: Text(tf == '1D' && isSelected ? '1D ▾' : tf),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() {
+                      _selectedTimeframe = tf;
+                      // Reset default resolution if switching to 1D
+                      if (tf == '1D' && _selectedResolution.isEmpty) {
+                         _selectedResolution = '30m';
+                      }
+                    });
+                  }
+                },
+                backgroundColor: isDark ? const Color(0xFF1A2028) : Colors.white,
+                selectedColor: AppColors.success,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.success : (isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5)),
+                  ),
+                ),
+                showCheckmark: false,
+              );
             },
-            backgroundColor: isDark ? const Color(0xFF1A2028) : Colors.white,
-            selectedColor: AppColors.success,
-            labelStyle: TextStyle(
-              color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black),
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        if (_selectedTimeframe == '1D') ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 30, // Smaller chips for resolution
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: ['1m', '5m', '15m', '30m', '1H'].map((res) {
+                final isResSelected = res == _selectedResolution;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(res, style: const TextStyle(fontSize: 12)),
+                    visualDensity: VisualDensity.compact,
+                    selected: isResSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedResolution = res;
+                        });
+                      }
+                    },
+                    backgroundColor: isDark ? Colors.transparent : Colors.grey[200],
+                    selectedColor: AppColors.success.withOpacity(0.8),
+                    labelStyle: TextStyle(
+                      color: isResSelected ? Colors.white : (isDark ? Colors.grey : Colors.black87),
+                      fontWeight: isResSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: isResSelected ? Colors.transparent : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
+                    showCheckmark: false,
+                  ),
+                );
+              }).toList(),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(
-                color: isSelected ? AppColors.success : (isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5)),
-              ),
-            ),
-            showCheckmark: false,
-          );
-        },
-      ),
+          ),
+        ]
+      ],
     );
   }
 }

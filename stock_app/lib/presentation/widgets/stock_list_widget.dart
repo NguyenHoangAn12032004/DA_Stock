@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/stock_entity.dart';
 import '../providers/market_provider.dart';
-import '../../screens/stock_detail_screen.dart'; // Ensure correct import path
-// Note: If StockDetailScreen is in lib/screens/, path is correct relative to widgets if widget is in lib/presentation/widgets
-// Actually, StockDetailScreen is likely in lib/screens, so ../../screens/stock_detail_screen.dart
 import '../../screens/stock_detail_screen.dart'; 
 import '../../theme/app_colors.dart';
 
