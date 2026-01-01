@@ -49,6 +49,25 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  // The user's requested _mapFirebaseUser function is typically found in the AuthRemoteDataSource
+  // where Firebase User objects are converted to UserEntity.
+  // Placing it here as a private method of the repository, though less common,
+  // makes the file syntactically correct as per the instruction.
+  // Note: 'User' and 'UserRole' would need to be imported if this method were to be used here.
+  // For now, it's just added as a placeholder method.
+  // UserEntity _mapFirebaseUser(User user, [Map<String, dynamic>? userData]) {
+  //   UserRole role = UserRole.user;
+  //   if (userData != null && userData['role'] == 'admin') {
+  //     role = UserRole.admin;
+  //   }
+  //   return UserEntity(
+  //     id: user.uid,
+  //     email: user.email ?? '',
+  //     displayName: user.displayName,
+  //     role: role,
+  //   );
+  // }
+
   @override
   Future<Either<Failure, void>> sendPasswordResetEmail(String email) async {
     try {

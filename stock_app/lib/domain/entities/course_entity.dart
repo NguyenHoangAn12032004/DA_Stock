@@ -5,6 +5,7 @@ class Lesson {
   final String videoUrl;
   final String thumbnail;
   final bool isCompleted;
+  final int order;
 
   Lesson({
     required this.id,
@@ -13,6 +14,7 @@ class Lesson {
     required this.videoUrl,
     required this.thumbnail,
     this.isCompleted = false,
+    this.order = 0,
   });
 
   factory Lesson.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class Lesson {
       videoUrl: json['video_url'] ?? '',
       thumbnail: json['thumbnail'] ?? '',
       isCompleted: json['is_completed'] ?? false,
+      order: json['order'] ?? 0,
     );
   }
 }
@@ -32,6 +35,7 @@ class Course {
   final String title;
   final String level;
   final String description;
+  final int order;
   final List<Lesson> lessons;
 
   Course({
@@ -40,6 +44,7 @@ class Course {
     required this.level,
     required this.description,
     required this.lessons,
+    this.order = 0,
   });
 
   factory Course.fromJson(String id, Map<String, dynamic> json) {
@@ -51,6 +56,7 @@ class Course {
       title: json['title'] ?? '',
       level: json['level'] ?? '',
       description: json['description'] ?? '',
+      order: json['order'] ?? 0,
       lessons: lessonsList,
     );
   }

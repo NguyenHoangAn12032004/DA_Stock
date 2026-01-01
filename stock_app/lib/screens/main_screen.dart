@@ -12,6 +12,8 @@ import 'help_support_screen.dart';
 import 'discover_screen.dart';
 import 'trade_screen.dart';
 import 'alerts_screen.dart';
+import 'admin_screen.dart';
+import '../domain/entities/user_entity.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -180,6 +182,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               MaterialPageRoute(builder: (context) => const AiAssistantScreen()),
             );
           }, isDark),
+          if (user?.role == UserRole.admin)
+            _buildDrawerItem(Icons.admin_panel_settings, 'Admin Dashboard', () {
+              Navigator.pop(context); // Close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminScreen()),
+              );
+            }, isDark),
           _buildDrawerItem(Icons.school_outlined, 'Learning Center', () {
             Navigator.pop(context);
             Navigator.push(

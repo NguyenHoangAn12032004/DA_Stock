@@ -54,8 +54,11 @@ Stream<UserEntity?> authStateChanges(AuthStateChangesRef ref) {
 @riverpod
 class AuthController extends _$AuthController {
   @override
+  @override
   FutureOr<UserEntity?> build() async {
-    final user = await ref.watch(authRepositoryProvider).currentUser;
+    // Watch the Stream to get real-time updates (including Role from asyncMap)
+    final user = await ref.watch(authStateChangesProvider.future);
+    
     if (user != null) {
       // Background sync of FCM token to ensure it's up to date
       _syncFCMToken(user.id);

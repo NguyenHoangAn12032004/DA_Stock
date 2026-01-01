@@ -25,12 +25,28 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Stream<UserEntity?> get authStateChanges {
-    return _firebaseAuth.authStateChanges().map((user) {
+    return _firebaseAuth.authStateChanges().asyncMap((user) async {
       if (user == null) return null;
+      
+      // Fetch Role from Firestore
+      UserRole role = UserRole.user;
+      try {
+        final doc = await _firestore.collection('users').doc(user.uid).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          if (data['role'] == 'admin') {
+            role = UserRole.admin;
+          }
+        }
+      } catch (e) {
+        print("Error fetching user role: $e");
+      }
+
       return UserEntity(
         id: user.uid,
         email: user.email!,
         displayName: user.displayName,
+        role: role,
       );
     });
   }
@@ -43,10 +59,26 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         password: password,
       );
       final user = result.user!;
+      
+      // Fetch Role
+      UserRole role = UserRole.user;
+      try {
+        final doc = await _firestore.collection('users').doc(user.uid).get();
+         if (doc.exists && doc.data() != null) {
+          final data = doc.data()!;
+          if (data['role'] == 'admin') {
+            role = UserRole.admin;
+          }
+        }
+      } catch (e) { 
+         // Ignore role fetch error, default to user
+      }
+
       return UserEntity(
         id: user.uid,
         email: user.email!,
         displayName: user.displayName,
+        role: role,
       );
     } on FirebaseAuthException catch (e) {
       throw ServerFailure(e.message ?? 'Authentication failed');
@@ -67,11 +99,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       // Update display name
       await user.updateDisplayName(fullName);
 
-      // Create Wallet in Firestore (Legacy Logic)
+      // Create Wallet in Firestore with default role 'user'
       await _firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': email,
         'fullName': fullName,
+        'role': 'user', // Default role
         'createdAt': FieldValue.serverTimestamp(),
         'balance': 100000000, 
         'portfolio_value': 0,
@@ -82,6 +115,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         id: user.uid,
         email: email,
         displayName: fullName,
+        role: UserRole.user,
       );
     } on FirebaseAuthException catch (e) {
       throw ServerFailure(e.message ?? 'Registration failed');
@@ -103,10 +137,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   UserEntity? get currentUser {
     final user = _firebaseAuth.currentUser;
     if (user == null) return null;
+    
+    // NOTE: currentUser is synchronous, so we cannot await Firestore here.
+    // It will return UserRole.user by default until authStateChanges updates it.
+    // This is a known limitation of having synchronous getter for Async data.
+    // The App should rely on authStateChanges (Stream) for accurate Role.
     return UserEntity(
       id: user.uid,
       email: user.email!,
       displayName: user.displayName,
+      role: UserRole.user, // Default, will update via Listeners
     );
   }
 
