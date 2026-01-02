@@ -13,6 +13,7 @@ import 'discover_screen.dart';
 import 'trade_screen.dart';
 import 'alerts_screen.dart';
 import 'admin_screen.dart';
+import 'social_screen.dart'; // Import Social Screen
 import '../domain/entities/user_entity.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -182,6 +183,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               MaterialPageRoute(builder: (context) => const AiAssistantScreen()),
             );
           }, isDark),
+          _buildDrawerItem(Icons.groups_outlined, 'Social Trading', () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SocialScreen()),
+            );
+          }, isDark),
+
           if (user?.role == UserRole.admin)
             _buildDrawerItem(Icons.admin_panel_settings, 'Admin Dashboard', () {
               Navigator.pop(context); // Close drawer

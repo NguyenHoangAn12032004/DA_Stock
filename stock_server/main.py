@@ -55,6 +55,9 @@ active_connections = 0
 shutdown_event = asyncio.Event()
 # vnstock_mutex = asyncio.Lock() # REMOVED: Causing potential deadlocks
 
+# --- CONFIGURATION ---
+TRADING_FEE_RATE = 0.001 # 0.1% Fee per transaction
+
 # --- HELPER: ROBUST REQUEST SESSION ---
 def get_requests_session():
     """Create a session with browser-like headers to avoid blocking."""
@@ -267,6 +270,20 @@ async def matching_engine():
                             
                             # Xóa khỏi danh sách chờ
                             r.srem("pending_orders", oid)
+
+                            # --- SOCIAL FEED UPDATE ---
+                            # Push to 'recent_trades' list (capped at 50 items)
+                            trade_event = {
+                                "user_id": order_data.get("user_id"),
+                                "symbol": symbol,
+                                "action": "mua" if side == "buy" else "bán", # Vietnamese for UI
+                                "price": current_price,
+                                "quantity": quantity,
+                                "timestamp": int(time.time())
+                            }
+                            r.lpush("recent_trades", json.dumps(trade_event))
+                            r.ltrim("recent_trades", 0, 49) # Keep only last 50
+                            # --------------------------
                             
                             # --- FIREBASE UPDATE (REAL ASSETS) ---
                             db = get_db()
@@ -296,10 +313,13 @@ async def matching_engine():
                                             })
                                     elif side == "sell":
                                         # Deduct stocks (User should have enough validated at place_order, but good to check)
-                                        # And Add Money to Balance
+                                        # And Add Money to Balance - FEE
+                                        fee = total_value * TRADING_FEE_RATE
+                                        net_receive = total_value - fee
+                                        
                                         user_ref = db.collection("users").document(user_id)
                                         user_ref.update({
-                                            "balance": firestore.Increment(total_value)
+                                            "balance": firestore.Increment(net_receive)
                                         })
                                         # For sell, we assume quantity was locked or positive. 
                                         # Ideally we decrease quantity here or remove doc if 0
@@ -370,6 +390,24 @@ async def alert_monitor():
                     elif condition == "Below" and current_price <= target_price:
                         is_triggered = True
                     
+                    # 4. Advanced: Technical Alerts (RSI)
+                    # Check if we have signal data in Redis (populated by advice_server or analyze_metrics)
+                    # Key: f"signal:{symbol}"
+                    if condition in ["RSI_Above", "RSI_Below"]:
+                         signal_json = r.get(f"signal:{symbol}")
+                         if signal_json:
+                             try:
+                                 sig_data = json.loads(signal_json)
+                                 rsi = float(sig_data.get("rsi", 50))
+                                 
+                                 if condition == "RSI_Above" and rsi >= target_price: # target_price acts as RSI threshold (e.g., 70)
+                                     is_triggered = True
+                                     current_price = rsi # Hack to show RSI value in notification body
+                                 elif condition == "RSI_Below" and rsi <= target_price:
+                                     is_triggered = True
+                                     current_price = rsi
+                             except: pass
+                    
                     if is_triggered:
                         print(f"🔔 ALERT TRIGGERED: {symbol} is {current_price} ({condition} {target_price})")
                         
@@ -381,8 +419,8 @@ async def alert_monitor():
                                 try:
                                     message = messaging.Message(
                                         notification=messaging.Notification(
-                                            title=f"📢 Giá {symbol} biến động!",
-                                            body=f"Giá {symbol} đã đạt mức {current_price:,.0f} (Mục tiêu: {target_price:,.0f})"
+                                            title=f"📢 Cảnh báo {symbol}!",
+                                            body=f"Tín hiệu {condition}: {current_price:,.2f} (Mục tiêu: {target_price})"
                                         ),
                                         token=fcm_token
                                     )
@@ -402,12 +440,66 @@ async def alert_monitor():
                              print(f"   ❌ CRITICAL: Failed to deactivate alert {symbol}: {update_err}")
 
             await asyncio.sleep(5) # Check every 5 seconds
-        except asyncio.CancelledError:
-            break
         except Exception as e:
-            # db.collection_group often requires an INDEX. Print error clearly.
-            print(f"⚠️ Alert Monitor Error: {e}")
-            await asyncio.sleep(10)
+             print(f"⚠️ Alert Monitor Error: {e}")
+             await asyncio.sleep(5)
+
+async def metrics_monitor():
+    """
+    Task chạy ngầm: Tự động tính toán Leaderboard mỗi 60 giây.
+    """
+    print("🚀 Bắt đầu Metrics Monitor...")
+    while not shutdown_event.is_set():
+        try:
+             # Call the logic directly (reusing the code from the API would be better, but copying for safety/speed)
+             # Actually, let's call the function if it was refactored. 
+             # For now, we will duplicate the critical logic or refactor.
+             # Let's refactor the logic into a standalone function `update_leaderboard_logic()`
+             await update_leaderboard_logic()
+             await asyncio.sleep(60)
+        except Exception as e:
+            print(f"⚠️ Metrics Monitor Error: {e}")
+            await asyncio.sleep(60)
+
+async def update_leaderboard_logic():
+    if not r: return
+    db = get_db()
+    if not db: return
+    
+    users = db.collection("users").stream()
+    pipe = r.pipeline()
+    count = 0
+    
+    for user in users:
+        uid = user.id
+        data = user.to_dict()
+        balance = data.get("balance", 0)
+        # Calculate Holdings
+        holdings_ref = db.collection("users").document(uid).collection("holdings").stream()
+        holdings_val = 0
+        
+        for h in holdings_ref:
+            h_data = h.to_dict()
+            qty = h_data.get("quantity", 0)
+            avg_price = h_data.get("average_price", 0)
+            symbol = h_data.get("symbol", "")
+            
+            current_price = avg_price
+            market_json = r.get(f"stock:{symbol}")
+            if market_json:
+                try: 
+                    current_price = float(json.loads(market_json).get("price", avg_price))
+                except: pass
+            
+            holdings_val += qty * current_price
+            
+        total_equity = balance + holdings_val
+        pipe.zadd("leaderboard:equity", {uid: total_equity})
+        count += 1
+        
+    pipe.execute()
+    print(f"✅ Leaderboard updated: {count} users processed")
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -419,6 +511,7 @@ async def startup_event():
     asyncio.create_task(market_data_simulator())
     asyncio.create_task(matching_engine())
     asyncio.create_task(alert_monitor())
+    asyncio.create_task(metrics_monitor()) # Start the new task
 
 @app.on_event("shutdown")
 async def shutdown_event_handler():
@@ -807,13 +900,18 @@ async def place_order(order: OrderRequest):
                 
                 balance = user_snap.to_dict().get("balance", 0)
                 total_cost = order.price * order.quantity
+                fee = total_cost * TRADING_FEE_RATE
+                total_deduction = total_cost + fee
                 
-                if balance < total_cost:
-                    raise HTTPException(status_code=400, detail="Insufficient funds")
+                if balance < total_deduction:
+                    raise HTTPException(status_code=400, detail=f"Insufficient funds (Rev: {total_cost} + Fee: {fee})")
                 
                 # Deduct immediately
-                user_ref.update({"balance": firestore.Increment(-total_cost)})
-                print(f"💰 Deducted {total_cost} from User {order.user_id}")
+                user_ref.update({"balance": firestore.Increment(-total_deduction)})
+                print(f"💰 Deducted {total_deduction} (inc. {fee} fee) from User {order.user_id}")
+                
+                # Store fee in order check
+                order_data["fee"] = fee
                 
             elif order.side == "sell":
                 # Check User has enough stocks
@@ -862,8 +960,9 @@ async def place_order(order: OrderRequest):
         }
     except Exception as e:
         # ROLLBACK MONEY IF REDIS FAILS (Simple compensation)
+        # ROLLBACK MONEY IF REDIS FAILS (Simple compensation)
         if db and order.side == "buy":
-             user_ref.update({"balance": firestore.Increment(order.price * order.quantity)})
+             user_ref.update({"balance": firestore.Increment(order.price * order.quantity * (1 + TRADING_FEE_RATE))})
         raise HTTPException(status_code=500, detail=f"Failed to place order: {str(e)}")
 
 @app.get("/api/orders/{user_id}")
@@ -925,10 +1024,13 @@ async def cancel_order(req: OrderCancelRequest):
         
         db = get_db()
         if side == "buy" and db:
-             # Refund Money
+             # Refund Money + Fee
+             fee = float(order_data.get("fee", 0)) if "fee" in order_data else (total_val * TRADING_FEE_RATE)
+             refund_amount = total_val + fee
+             
              user_ref = db.collection("users").document(req.user_id)
-             user_ref.update({"balance": firestore.Increment(total_val)})
-             print(f"💰 Refunded {total_val} to User {req.user_id}")
+             user_ref.update({"balance": firestore.Increment(refund_amount)})
+             print(f"💰 Refunded {refund_amount} to User {req.user_id}")
         
         # 3. Redis Cleanup
         pipe = r.pipeline()
@@ -1032,6 +1134,113 @@ async def get_portfolio(user_id: str):
     except Exception as e:
         print(f"Portfolio Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+# --- SOCIAL TRADING API ---
+
+@app.post("/api/social/calculate_metrics")
+async def calculate_metrics():
+    """
+    Admin/Task: Tính toán lại PnL% (Manual Trigger).
+    """
+    try:
+        await update_leaderboard_logic()
+        return {"status": "success", "message": "Leaderboard updated"}
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/social/leaderboard")
+async def get_leaderboard(limit: int = 10):
+    if not r: return {"data": []}
+    
+    # Get top users by Equity
+    top_users = r.zrevrange("leaderboard:equity", 0, limit-1, withscores=True)
+    
+    result = []
+    db = get_db()
+    
+    for uid, score in top_users:
+        # Get User Info (Name, Avatar)
+        name = "Unknown"
+        if db:
+            u_snap = db.collection("users").document(uid).get()
+            if u_snap.exists:
+                name = u_snap.to_dict().get("fullName", "Trader")
+        
+        result.append({
+            "user_id": uid,
+            "name": name,
+            "equity": score,
+            "roi": ((score - 100000000) / 100000000) * 100 # Mock ROI based on 100m start
+        })
+        
+    return {"data": result}
+    
+@app.post("/api/social/follow")
+async def follow_user(follower_id: str, leader_id: str):
+    if not r: return {"status": "error"}
+    
+    # Add to Set
+    r.sadd(f"followers:{leader_id}", follower_id)
+    r.sadd(f"following:{follower_id}", leader_id)
+    
+    return {"status": "success", "message": f"User {follower_id} is now copying {leader_id}"}
+    
+@app.get("/api/social/profile/{target_id}")
+async def get_trader_profile(target_id: str):
+    # Mock Profile Data
+    db = get_db()
+    name = "Trader"
+    if db:
+        u = db.collection("users").document(target_id).get()
+        if u.exists: name = u.to_dict().get("fullName", "Trader")
+
+    return {
+        "user_id": target_id,
+        "name": name,
+        "win_rate": 68.5, # Mock
+        "total_trades": 142, # Mock
+        "followers": r.scard(f"followers:{target_id}") if r else 0
+    }
+
+@app.get("/api/social/feed")
+async def get_social_feed(limit: int = 20):
+    """
+    Get recent trades from the platform.
+    """
+    if not r: 
+        print("❌ Redis unavailable in get_social_feed")
+        return {"data": []}
+    
+    # Fetch from Redis List
+    raw_trades = r.lrange("recent_trades", 0, limit - 1)
+    print(f"🔍 DEBUG: Fetching recent_trades from Redis. Count: {len(raw_trades)}")
+    
+    result = []
+    
+    db = get_db()
+    
+    for rt in raw_trades:
+        try:
+            # Redis might return bytes if decode_responses=False isn't set
+            if isinstance(rt, bytes):
+                rt = rt.decode('utf-8')
+                
+            trade = json.loads(rt)
+            # Enrich with User Name
+            uid = trade.get("user_id")
+            name = "Trader"
+            if db:
+                # Basic caching could be added here to avoid DB spam
+                u_snap = db.collection("users").document(uid).get()
+                if u_snap.exists:
+                     name = u_snap.to_dict().get("fullName", "Trader")
+            
+            trade["user_name"] = name
+            result.append(trade)
+        except Exception as e:
+            print(f"⚠️ Error parsing trade: {e}")
+            pass
+        
+    return {"data": result}
 
 # --- ADMIN API (High Performance) ---
 @app.get("/api/admin/stats")
