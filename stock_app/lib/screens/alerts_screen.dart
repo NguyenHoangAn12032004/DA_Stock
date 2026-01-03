@@ -41,13 +41,17 @@ class AlertsScreen extends ConsumerWidget {
               ),
             );
           }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: alerts.length,
-            itemBuilder: (context, index) {
-              final alert = alerts[index];
-              return _buildAlertItem(context, ref, alert, isDark);
-            },
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(alertControllerProvider.future),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: alerts.length,
+              itemBuilder: (context, index) {
+                final alert = alerts[index];
+                return _buildAlertItem(context, ref, alert, isDark);
+              },
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

@@ -50,44 +50,121 @@ class _AdminCourseScreenState extends State<AdminCourseScreen> {
   }
 
   Widget _buildCourseCard(Course course, Color textColor) {
-    return Card(
-      color: Colors.grey.withOpacity(0.1),
-      margin: const EdgeInsets.all(8),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
       child: ExpansionTile(
-        title: Text(course.title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-        subtitle: Text(course.level, style: TextStyle(color: AppColors.primary)),
-        leading: CircleAvatar(child: Text("${course.order}")),
+        shape: const Border(), // Remove default border
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 40, height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8)
+          ),
+          child: Text("${course.order}", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+        ),
+        title: Text(course.title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _getLevelColor(course.level).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4)
+                ),
+                child: Text(course.level, style: TextStyle(color: _getLevelColor(course.level), fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.video_library, size: 14, color: textColor.withOpacity(0.5)),
+              const SizedBox(width: 4),
+              Text("${course.lessons.length} lessons", style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 12)),
+            ],
+          ),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showCourseDialog(context, course)),
-            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteCourse(course.id)),
-             const Icon(Icons.expand_more),
+            IconButton(icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.blue), onPressed: () => _showCourseDialog(context, course)),
+            IconButton(icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red), onPressed: () => _deleteCourse(course.id)),
           ],
         ),
         children: [
-          // Lessons List
-          ...course.lessons.map((lesson) => ListTile(
-            contentPadding: const EdgeInsets.only(left: 32, right: 16),
-            leading: const Icon(Icons.play_circle_outline, color: Colors.grey),
-            title: Text(lesson.title, style: TextStyle(color: textColor)),
-            subtitle: Text(lesson.duration, style: TextStyle(color: Colors.grey)),
-            trailing: IconButton(
-              icon: const Icon(Icons.edit_note),
-              onPressed: () => _showLessonDialog(context, course, lesson),
-            ),
-          )),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text("Add Lesson"),
-              onPressed: () => _showLessonDialog(context, course, null),
-            ),
+          Container(
+             decoration: BoxDecoration(
+               color: AppColors.primary.withOpacity(0.02),
+               border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.1)))
+             ),
+             child: Column(
+               children: [
+                 if (course.lessons.isEmpty)
+                   Padding(
+                     padding: const EdgeInsets.all(16.0),
+                     child: Text("No lessons yet. Add one!", style: TextStyle(color: textColor.withOpacity(0.5), fontStyle: FontStyle.italic)),
+                   ),
+                 ...course.lessons.map((lesson) => _buildLessonItem(lesson, course, textColor)).toList(),
+                 
+                 // Add Lesson Button
+                 InkWell(
+                   onTap: () => _showLessonDialog(context, course, null),
+                   child: Container(
+                     width: double.infinity,
+                     padding: const EdgeInsets.symmetric(vertical: 12),
+                     alignment: Alignment.center,
+                     /* decoration: BoxDecoration(
+                       border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.1)))
+                     ), */
+                     child: Row(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: [
+                         const Icon(Icons.add_circle_outline, size: 18, color: AppColors.primary),
+                         const SizedBox(width: 8),
+                         Text("Add New Lesson", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                       ],
+                     ),
+                   ),
+                 )
+               ],
+             ),
           )
         ],
       ),
     );
+  }
+
+  Widget _buildLessonItem(Lesson lesson, Course course, Color textColor) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+      leading: Text("${lesson.order}", style: TextStyle(color: textColor.withOpacity(0.5), fontWeight: FontWeight.bold)),
+      title: Text(lesson.title, style: TextStyle(color: textColor, fontSize: 14)),
+      subtitle: Row(
+        children: [
+          const Icon(Icons.timer_outlined, size: 12, color: Colors.grey),
+          const SizedBox(width: 4),
+          Text(lesson.duration, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.edit_note, size: 18, color: Colors.grey),
+        onPressed: () => _showLessonDialog(context, course, lesson),
+      ),
+    );
+  }
+
+  Color _getLevelColor(String level) {
+    switch (level.toLowerCase()) {
+      case 'beginner': return Colors.green;
+      case 'intermediate': return Colors.orange;
+      case 'advanced': return Colors.red;
+      default: return Colors.blue;
+    }
   }
 
   // --- CRUD LOGIC ---

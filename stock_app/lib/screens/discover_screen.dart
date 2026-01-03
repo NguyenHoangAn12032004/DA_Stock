@@ -161,113 +161,122 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: stocks.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final stock = stocks[index];
-        final isUp = stock['change'] >= 0;
-        final color = isUp ? AppColors.success : AppColors.danger;
-        final price = (stock['price'] as num).toDouble();
+    return RefreshIndicator(
+      onRefresh: () async {
+         // Refresh Forex rates as a proxy for "refreshing data"
+         ref.invalidate(forexRateProvider);
+         // Simulate a small delay for feeling
+         await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: stocks.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final stock = stocks[index];
+          final isUp = stock['change'] >= 0;
+          final color = isUp ? AppColors.success : AppColors.danger;
+          final price = (stock['price'] as num).toDouble();
 
-        return InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => StockDetailScreen(symbol: stock['symbol']),
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StockDetailScreen(symbol: stock['symbol']),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1A2633) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5),
+                ),
               ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1A2633) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF111418) : const Color(0xFFF6F7F8),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      stock['symbol'][0],
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF111418) : const Color(0xFFF6F7F8),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        stock['symbol'][0],
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          stock['symbol'],
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isDark ? Colors.white : const Color(0xFF111418),
+                          ),
+                        ),
+                        Text(
+                          stock['name'],
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? const Color(0xFF9CABBA) : const Color(0xFF637588),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        stock['symbol'],
+                        CurrencyHelper.format(price, symbol: stock['symbol'], language: language),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           color: isDark ? Colors.white : const Color(0xFF111418),
                         ),
                       ),
-                      Text(
-                        stock['name'],
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? const Color(0xFF9CABBA) : const Color(0xFF637588),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Icon(
+                            isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                            size: 14,
+                            color: color,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${stock['change']}%',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: color,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      CurrencyHelper.format(price, symbol: stock['symbol'], language: language),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : const Color(0xFF111418),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Icon(
-                          isUp ? Icons.arrow_upward : Icons.arrow_downward,
-                          size: 14,
-                          color: color,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${stock['change']}%',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: color,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

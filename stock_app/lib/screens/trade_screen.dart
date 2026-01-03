@@ -105,11 +105,13 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     });
   }
 
-  Future<void> _fetchData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
+  Future<void> _fetchData({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+    }
 
     try {
       final now = DateTime.now();
@@ -277,12 +279,38 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       if (mounted) Navigator.pop(context);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi đặt lệnh: $e'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        final errorMsg = e.toString();
+        // Check for Maintenance Mode error
+        if (errorMsg.contains("bảo trì") || errorMsg.contains("503")) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.build_circle_outlined, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text("Bảo trì hệ thống", style: TextStyle(fontSize: 18)),
+                ],
+              ),
+              content: const Text("Hệ thống đang tạm ngừng giao dịch để nâng cấp. Vui lòng quay lại sau!"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text("Đóng", style: TextStyle(fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
+          );
+        } else {
+          // Normal error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi đặt lệnh: $e'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
       }
     }
   }
@@ -469,9 +497,14 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               : Column(
                   children: [
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      child: RefreshIndicator(
+                        onRefresh: () async {
+                          await _fetchData(showLoading: false);
+                        },
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildHeaderStats(isDark),
                             SizedBox(
@@ -489,6 +522,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                         ),
                       ),
                     ),
+                  ),
                   ],
                 ),
     );

@@ -313,38 +313,58 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
         elevation: 0,
         color: isDark ? const Color(0xFF1A2028) : Colors.white,
         margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: Icon(
-            isBuy ? Icons.download : Icons.upload,
-            color: isBuy ? AppColors.success : AppColors.danger,
-          ),
-          title: Text("${isBuy ? 'BUY' : 'SELL'} ${order.symbol}"),
-          subtitle: Text(DateFormat('yyyy-MM-dd HH:mm').format(DateTime.fromMillisecondsSinceEpoch(order.timestamp * 1000))),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
             children: [
-              Text(
-                "${order.quantity} @ ${CurrencyHelper.format(order.price, symbol: order.symbol, language: language)}",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
+              Icon(
+                isBuy ? Icons.download : Icons.upload,
+                color: isBuy ? AppColors.success : AppColors.danger,
               ),
-              const SizedBox(height: 2),
-              Text(
-                CurrencyHelper.format(order.price * order.quantity, symbol: order.symbol, language: language),
-                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isBuy ? AppColors.danger : AppColors.success), 
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${isBuy ? 'BUY' : 'SELL'} ${order.symbol}",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('yyyy-MM-dd HH:mm').format(DateTime.fromMillisecondsSinceEpoch(order.timestamp * 1000)),
+                      style: TextStyle(fontSize: 12, color: isDark ? Colors.grey : Colors.grey[700]),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4)
-                ),
-                child: Text(
-                  order.status.name.toUpperCase(),
-                  style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.bold),
-                ),
-              )
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "${order.quantity} @ ${CurrencyHelper.format(order.price, symbol: order.symbol, language: language)}",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    CurrencyHelper.format(order.price * order.quantity, symbol: order.symbol, language: language),
+                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isBuy ? AppColors.danger : AppColors.success), 
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4)
+                    ),
+                    child: Text(
+                      order.status.name.toUpperCase(),
+                      style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                ],
+              ),
             ],
           ),
         ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
+import 'package:fl_chart/fl_chart.dart'; // Chart
 import '../theme/app_colors.dart';
 import '../core/network/dio_client.dart'; 
+import 'dart:async';
 import 'admin_course_screen.dart'; // Assume DioClient is accessible via GetIt or Provider
 
 // Since we are refactoring, let's keep it self-contained in Stateful for now to avoid creating complex Providers yet.
@@ -25,12 +27,21 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
   DocumentSnapshot? _lastUserDoc;
   final int _limit = 20;
 
+  Timer? _timer;
+  
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _fetchStats();
     _fetchUsers();
+    
+    // Auto-refresh stats every 5 seconds
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _fetchStats();
+      }
+    });
     
     // Infinite Scroll Listener
     _scrollController.addListener(() {
@@ -39,21 +50,43 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       }
     });
   }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _tabController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
   
   // 1. Fetch Stats from Backend (Aggregated)
   Future<void> _fetchStats() async {
     try {
-      // Direct Dio call for simplicity or use ApiService
-      // Assuming DioClient setup or plain Dio for MVP
-       final dio = Dio(); 
-       final response = await dio.get('http://10.0.2.2:8000/api/admin/stats');
+       // Use DioClient to handle BaseUrl automatically (10.0.2.2 or localhost)
+       final dio = DioClient.instance.dio; 
+       final response = await dio.get('/api/admin/stats');
        if (response.statusCode == 200) {
-         setState(() {
-           _stats = response.data;
-         });
+         if (mounted) {
+           setState(() {
+             _stats = response.data;
+           });
+         }
        }
     } catch (e) {
       print("Error fetching stats: $e");
+      // Fallback/Error State to stop spinning
+      if (mounted) {
+        setState(() {
+          _stats = {
+            "total_users": 0,
+            "active_orders": 0,
+            "total_assets": 0,
+            "user_growth": [],
+            "status": "Offline (Connection Error)"
+          };
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Connection Error: $e")));
+      }
     }
   }
 
@@ -122,7 +155,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildOverviewTab(textColor),
+          _buildOverviewTab(textColor, isDark),
           _buildUsersTab(textColor),
           _buildCmsTab(textColor),
         ],
@@ -130,56 +163,193 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
     );
   }
   
-  Widget _buildOverviewTab(Color textColor) {
+  Widget _buildOverviewTab(Color textColor, bool isDark) {
     if (_stats == null) return const Center(child: CircularProgressIndicator());
     
+    // Parse Real Data
+    final List<dynamic> rawGrowth = _stats!['user_growth'] ?? [];
+    final List<double> userGrowth = rawGrowth.isEmpty 
+        ? [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        : rawGrowth.map((e) => (e as num).toDouble()).toList();
+        
+    // Dynamic MaxY
+    double maxY = 10;
+    if (userGrowth.isNotEmpty) {
+      double maxVal = userGrowth.reduce((curr, next) => curr > next ? curr : next);
+      maxY = (maxVal * 1.5).clamp(10.0, 1000.0);
+    }
+    
     return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Real Data Cards
-          _buildStatCard("Total Users", "${_stats!['total_users']}", Colors.blue),
-          _buildStatCard("Active Orders", "${_stats!['active_orders']}", Colors.orange),
+          // 1. Stats Grid
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.3,
+            children: [
+              _buildStatCard("Online Users", "${_stats!['total_users']}", Colors.blue, Icons.people, isDark),
+              _buildStatCard("Active Orders", "${_stats!['active_orders']}", Colors.orange, Icons.trending_up, isDark),
+              _buildStatCard("Total Assets", "\$${((_stats!['total_assets'] ?? 0) / 1000000).toStringAsFixed(1)}M", Colors.green, Icons.attach_money, isDark),
+              _buildStatCard("Server Status", "${_stats!['status']}", Colors.teal, Icons.dns, isDark),
+            ],
+          ),
           
-          const Divider(height: 32),
+          const SizedBox(height: 24),
           
-          // System Config Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("System Configuration", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance.collection('system').doc('config').snapshots(),
-                  builder: (context, snapshot) {
-                     bool isMaintenance = false;
-                     if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
-                       isMaintenance = (snapshot.data!.data() as Map<String, dynamic>)['maintenance_mode'] ?? false;
-                     }
-                     return Card(
-                       color: isMaintenance ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-                       child: SwitchListTile(
-                         title: Text("Maintenance Mode", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                         subtitle: Text(
-                           isMaintenance ? "System is OFFLINE (Users cannot trade)" : "System is ONLINE",
-                           style: TextStyle(color: textColor.withOpacity(0.7)),
-                         ),
-                         value: isMaintenance,
-                         onChanged: (val) async {
-                           await FirebaseFirestore.instance.collection('system').doc('config').set(
-                             {'maintenance_mode': val}, SetOptions(merge: true)
-                           );
-                         },
-                         activeColor: Colors.red,
-                       ),
-                     );
-                  }
-                ),
-              ],
+          // 2. Growth Chart
+          Text("User Growth (Last 7 Days)", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E222D) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
             ),
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                         // Generate last 7 days
+                         final today = DateTime.now();
+                         // value 0 = 6 days ago, value 6 = today
+                         final date = today.subtract(Duration(days: 6 - value.toInt()));
+                         return Padding(
+                           padding: const EdgeInsets.only(top: 8.0),
+                           child: Text(
+                             "${date.day}/${date.month}", 
+                             style: TextStyle(color: Colors.grey, fontSize: 10)
+                           ),
+                         );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0, maxX: 6, 
+                minY: 0, maxY: maxY,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: userGrowth.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+                    isCurved: true,
+                    color: AppColors.primary,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    belowBarData: BarAreaData(show: true, color: AppColors.primary.withOpacity(0.1)),
+                    dotData: FlDotData(show: true), // Show dots for data points
+                  )
+                ]
+              )
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // 3. System Config
+          Text("System Control", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('system').doc('config').snapshots(),
+            builder: (context, snapshot) {
+               bool isMaintenance = false;
+               if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                 isMaintenance = (snapshot.data!.data() as Map<String, dynamic>)['maintenance_mode'] ?? false;
+               }
+               return Container(
+                 decoration: BoxDecoration(
+                   color: isDark ? const Color(0xFF1E222D) : Colors.white,
+                   borderRadius: BorderRadius.circular(16),
+                 ),
+                 child: SwitchListTile(
+                   title: Text("Maintenance Mode", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                   subtitle: Text(
+                     isMaintenance ? "🔴 System OFFLINE" : "🟢 System ONLINE",
+                     style: TextStyle(color: isMaintenance ? Colors.red : Colors.green),
+                   ),
+                   value: isMaintenance,
+                   onChanged: (val) async {
+                      // Confirmation Dialog
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: Text(val ? "Enable Maintenance Mode?" : "Disable Maintenance Mode?"),
+                          content: Text(val 
+                            ? "This will prevent ALL users from logging in or trading. Are you sure?" 
+                            : "System will go back online for all users."),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true), 
+                              child: Text(val ? "Turn OFF System" : "Go Online", style: TextStyle(color: val ? Colors.red : Colors.green))
+                            ),
+                          ],
+                        )
+                      );
+                      
+                      if (confirm == true) {
+                         await FirebaseFirestore.instance.collection('system').doc('config').set(
+                           {'maintenance_mode': val}, SetOptions(merge: true)
+                         );
+                         _fetchStats(); // Refresh stats to reflect status change if needed (though stream updates toggle)
+                      }
+                   },
+                   activeColor: Colors.red,
+                   secondary: Icon(Icons.security, color: isMaintenance ? Colors.red : Colors.green),
+                 ),
+               );
+            }
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, Color color, IconData icon, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E222D) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))]
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 24),
+              // Percentage indicator removed
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(title, style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
           )
-        ]
+        ],
       ),
     );
   }
@@ -250,23 +420,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
     }
   }
 
-  Widget _buildStatCard(String title, String value, Color color) {
-    // ... same as before
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3))
-      ),
-      child: Row(children: [
-        Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)), 
-        const Spacer(), 
-        Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold))
-      ])
-    );
-  }
+
   
   Widget _buildCmsTab(Color textColor) { 
     return Center(

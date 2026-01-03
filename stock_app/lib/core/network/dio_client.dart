@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DioClient {
   static final DioClient instance = DioClient._();
@@ -19,6 +20,15 @@ class DioClient {
       InterceptorsWrapper(
         onRequest: (options, handler) {
           _logger.i('Request: ${options.method} ${options.path}');
+          // Inject User ID for "Online Users" tracking
+          try {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              options.headers["x-user-id"] = user.uid;
+            }
+          } catch (e) {
+            // Ignore auth errors in networking
+          }
           return handler.next(options);
         },
         onResponse: (response, handler) {

@@ -35,6 +35,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
+
+class ActivityTrackerMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 1. Track User Activity
+        user_id = request.headers.get("x-user-id")
+        if user_id and r:
+            # Update last_active timestamp in Redis Sorted Set
+            # Score = Timestamp (Now)
+            try:
+                r.zadd("online_users", {user_id: time.time()})
+                # Auto-expire logic is handled in stats query or cron, 
+                # but simplest is just zadd here.
+            except: pass
+            
+        response = await call_next(request)
+        return response
+
+app.add_middleware(ActivityTrackerMiddleware)
+
 # --- CẤU HÌNH REDIS (UPSTASH) ---
 # TODO: Thay thế chuỗi bên dưới bằng URL từ Upstash Dashboard của bạn
 # Ví dụ: "rediss://default:xxxx@yyyy.upstash.io:6379"
@@ -84,54 +105,30 @@ async def fetch_real_price(symbol: str):
             def get_vn_price():
                 try:
                     # Hybrid Strategy: Intraday (Price) + History (Reference)
-                    stock = Vnstock().stock(symbol=symbol, source='VCI')
-                    
-                    # 1. Get Realtime Price (Intraday)
-                    df_now = stock.quote.intraday(page_size=1)
-                    price = 0.0
-                    volume = 0
-                    if df_now is not None and not df_now.empty:
-                        row = df_now.iloc[0]
-                        price = float(row.get('price', 0))
-                        volume = int(row.get('volume', 0))
-                    
-                    if price == 0: return None
+                    try:
+                        stock = Vnstock().stock(symbol=symbol, source='VCI')
                         
-                    # Fix Scaling
-                    if price < 500: price *= 1000
+                        # 1. Get Realtime Price (Intraday)
+                        df_now = stock.quote.intraday(page_size=1)
+                        local_price = 0.0
+                        local_volume = 0
+                        if df_now is not None and not df_now.empty:
+                            row = df_now.iloc[0]
+                            local_price = float(row.get('price', 0))
+                            local_volume = int(row.get('volume', 0))
+                        
+                        if local_price == 0: return None
+                        
+                        # Fix Scaling (Crucial for HPG: 26.4 -> 26400)
+                        if local_price < 500: local_price *= 1000
+                        
+                        return (local_price, local_volume, 0.0) # change_percent calc later
+                    except BaseException as e: # Catch SystemExit and Rate Limits
+                        print(f"⚠️ Vnstock Error/RateLimit: {e}")
+                        return None
 
-                    # 2. Get Previous Close (History)
-                    today = datetime.now().strftime("%Y-%m-%d")
-                    start_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-                    
-                    df_hist = stock.quote.history(start=start_date, end=today, interval='1D')
-                    
-                    change_percent = 0.0
-                    
-                    if df_hist is not None and not df_hist.empty:
-                        records = df_hist.to_dict('records')
-                        
-                        # Find Prev Close
-                        last_rec = records[-1]
-                        last_date = str(last_rec.get('time', ''))[:10]
-                        
-                        prev_close = 0.0
-                        if last_date == today:
-                            if len(records) >= 2:
-                                prev_close = float(records[-2]['close'])
-                        else:
-                            prev_close = float(last_rec['close'])
-                        
-                        # Scaling check for prev_close
-                        if prev_close < 500: prev_close *= 1000
-                            
-                        # Calculate Change
-                        if prev_close > 0:
-                            change_percent = ((price - prev_close) / prev_close) * 100
-
-                    return price, volume, change_percent
                 except Exception as e:
-                    print(f"VNStock Error {symbol}: {e}")
+                    print(f"⚠️ get_vn_price logic error: {e}")
                     return None
             try:
                 result = await asyncio.wait_for(asyncio.to_thread(get_vn_price), timeout=5.0) # Increased timeout
@@ -501,6 +498,30 @@ async def update_leaderboard_logic():
     print(f"✅ Leaderboard updated: {count} users processed")
 
 
+IS_MAINTENANCE = False
+
+async def maintenance_monitor():
+    """
+    Background Task: Sync Maintenance Status from Firestore
+    """
+    global IS_MAINTENANCE
+    print("🛡️ Maintenance Monitor Started...")
+    while not shutdown_event.is_set():
+        try:
+            db = get_db()
+            if db:
+                doc = db.collection('system').document('config').get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    new_status = data.get('maintenance_mode', False)
+                    if new_status != IS_MAINTENANCE:
+                        IS_MAINTENANCE = new_status
+                        print(f"🛡️ System Maintenance Mode Changed to: {IS_MAINTENANCE}")
+            await asyncio.sleep(10)
+        except Exception as e:
+            print(f"Maintenance Monitor Error: {e}")
+            await asyncio.sleep(10)
+
 @app.on_event("startup")
 async def startup_event():
     # Khởi tạo Firebase
@@ -511,7 +532,8 @@ async def startup_event():
     asyncio.create_task(market_data_simulator())
     asyncio.create_task(matching_engine())
     asyncio.create_task(alert_monitor())
-    asyncio.create_task(metrics_monitor()) # Start the new task
+    asyncio.create_task(metrics_monitor()) 
+    asyncio.create_task(maintenance_monitor()) # Start maintenance monitor
 
 @app.on_event("shutdown")
 async def shutdown_event_handler():
@@ -871,6 +893,10 @@ async def place_order(order: OrderRequest):
     API Đặt lệnh (Mua/Bán)
     Lưu lệnh vào Redis và trả về Order ID.
     """
+    global IS_MAINTENANCE
+    if IS_MAINTENANCE:
+        raise HTTPException(status_code=503, detail="Hệ thống đang bảo trì. Vui lòng quay lại sau.")
+
     if not r:
         raise HTTPException(status_code=503, detail="Redis not connected")
 
@@ -1246,52 +1272,105 @@ async def get_social_feed(limit: int = 20):
 @app.get("/api/admin/stats")
 async def get_admin_stats():
     """
-    Returns system statistics efficiently.
-    Optimized for performance using Count Queries (Read optimized).
+    Returns system statistics efficiently with REAL data.
     """
+    db = get_db()
+    
+    db = get_db()
+    
+    # Calculate Online Users (Active in last 5 mins)
+    online_users = 0
     try:
-        # 1. Total Users (Firestore Count Aggregation)
-        # Note: count() is efficient and doesn't read all documents.
-        # Python firebase-admin supports aggregation queries.
-        
-        users_coll = db.collection('users')
-        count_query = users_coll.count()
-        
-        # Run blocking Firestore call in thread pool
-        def get_count():
-             # Requires firebase-admin >= 6.0
-             try:
-                 # Check if count query is supported in installed version
-                 # Fallback to simple streaming if count not available in old lib
-                 # But we assume standard setup.
-                 return count_query.get()[0][0].value
-             except:
-                 # Fallback for older lib versions: Stream keys only?
-                 # For 10k users, streaming all docs is bad.
-                 # Let's hope for count support or update lib.
-                 # Mocking high number for Demo if fails.
-                 return 0
-             
-        total_users = await asyncio.to_thread(get_count)
-        if total_users == 0:
-            # Fallback optimization: Use metadata/sharded counters in real app
-            # For this MVP, if count fails, we return a safe mock or 1 (Admin)
-            total_users = 1 
-
-        # 2. Redis Stats
-        active_orders = 0
         if r:
-            active_orders = r.scard("pending_orders")
+            # 1. Remove expired users (older than 5 mins)
+            five_mins_ago = time.time() - 300
+            r.zremrangebyscore("online_users", 0, five_mins_ago)
+            # 2. Count valid users
+            online_users = r.zcard("online_users")
+    except Exception as e: 
+        # print(f"Online Count Error: {e}")
+        pass
+
+    response_data = {
+        "total_users": online_users, # User requested this be "Users Online"
+        "active_orders": 0,
+        "total_assets": 0.0,
+        "user_growth": [0] * 7,
+        "status": "Maintenance" if IS_MAINTENANCE else "Online",
+        "server_time": datetime.now().isoformat()
+    }
+
+    try:
+        if not db:
+            # If DB is down, we can still show basic status
+            response_data["status"] = "Offline (DB)"
+            return response_data
+
+        # 1. User Growth (Last 7 Days) - Need Firestore
+        try:
+            today = datetime.now()
+            start_date = today - timedelta(days=6)
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            users_coll = db.collection('users')
+            # Stream only necessary fields if possible or just stream all (10k limit beware)
+            # For 10k users, streaming all for growth chart is heavy. 
+            # Optimization: Query only active/recent users if possible, or just accept cost for MVP.
+            # actually we only need created_at >= start_date
+            
+            recent_docs = list(users_coll.where(filter=firestore.FieldFilter('createdAt', '>=', start_date)).stream())
+            
+            growth = [0] * 7
+            for d in recent_docs:
+                data = d.to_dict()
+                created_at = data.get('createdAt')
+                
+                if created_at:
+                    if isinstance(created_at, str):
+                        try:
+                            # Attempt parsing if string
+                            t_str = created_at.replace('Z', '+00:00')
+                            created_at = datetime.fromisoformat(t_str)
+                        except: pass
+                    
+                    if isinstance(created_at, datetime):
+                        c_date = created_at.date()
+                        s_date = start_date.date()
+                        
+                        diff = (c_date - s_date).days
+                        if 0 <= diff < 7:
+                            growth[diff] += 1
+            
+            response_data["user_growth"] = growth
+            
+        except Exception as e:
+            print(f"⚠️ User Growth Error: {e}")
+            pass
+
+        # 2. Redis Stats (Active Orders & Total Assets)
+        if r:
+            try:
+                # Active Orders = Pending Orders (Waiting for match)
+                response_data["active_orders"] = r.scard("pending_orders")
+                
+                # Check leaderboard for assets
+                equity_scores = r.zrange("leaderboard:equity", 0, -1, withscores=True)
+                if equity_scores:
+                    response_data["total_assets"] = sum(score for _, score in equity_scores)
+                else:
+                    # Fallback assets calculation? Maybe unnecessary heavy fetch
+                    pass
+
+            except Exception as e:
+                 print(f"⚠️ Redis Stats Error: {e}")
+                 pass
         
-        return {
-            "total_users": total_users,
-            "active_orders": active_orders,
-            "status": "Online",
-            "server_time": datetime.now().isoformat()
-        }
+        return response_data
+
     except Exception as e:
-        print(f"Admin Stats Error: {e}")
-        return {"total_users": 0, "active_orders": 0, "status": "Online (Error)"}
+        print(f"CRITICAL Admin Stats Error: {e}")
+        response_data["status"] = "Offline (Error)"
+        return response_data
 
 @app.get("/api/health")
 async def health_check():

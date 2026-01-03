@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -6,13 +7,43 @@ import '../presentation/providers/auth_provider.dart';
 import '../domain/entities/order_entity.dart';
 import '../theme/app_colors.dart';
 
-class ActiveOrdersWidget extends ConsumerWidget {
+class ActiveOrdersWidget extends ConsumerStatefulWidget {
   final String symbol;
 
   const ActiveOrdersWidget({super.key, required this.symbol});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ActiveOrdersWidget> createState() => _ActiveOrdersWidgetState();
+}
+
+class _ActiveOrdersWidgetState extends ConsumerState<ActiveOrdersWidget> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-refresh pending orders every 2 seconds for faster feedback
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      final user = ref.read(authControllerProvider).valueOrNull;
+      if (user != null && mounted) {
+        // Invalidate provider to force re-fetch
+        // Note: Using invalidate doesn't cause loading spinner if we use "skipLoadingOnReload: true" in provider?
+        // FutureProvider doesn't support skipLoadingOnReload natively unless we handle it manually.
+        // However, standard ref.watch(provider) might flicker loading.
+        // But for MVP, this ensures data is fresh.
+        ref.invalidate(userOrdersProvider(user.id));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).valueOrNull;
     if (user == null) return const SizedBox();
 
@@ -22,7 +53,7 @@ class ActiveOrdersWidget extends ConsumerWidget {
       data: (orders) {
         // Filter for active (pending) orders of this symbol
         final activeOrders = orders.where((o) => 
-          o.symbol.toUpperCase() == symbol.toUpperCase() && 
+          o.symbol.toUpperCase() == widget.symbol.toUpperCase() && 
           o.status == OrderStatus.pending
         ).toList();
 
@@ -38,6 +69,7 @@ class ActiveOrdersWidget extends ConsumerWidget {
                     "Lệnh đang chờ",
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
                   ),
+                   // Optional: Manual Refresh Button
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
                     onPressed: () {
@@ -88,7 +120,7 @@ class ActiveOrdersWidget extends ConsumerWidget {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text("Hủy lệnh?"),
-                        content: Text("Bạn có chắc muốn hủy lệnh ${isBuy ? 'MUA' : 'BÁN'} ${order.quantity} $symbol?"),
+                        content: Text("Bạn có chắc muốn hủy lệnh ${isBuy ? 'MUA' : 'BÁN'} ${order.quantity} ${widget.symbol}?"),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Không")),
                           ElevatedButton(

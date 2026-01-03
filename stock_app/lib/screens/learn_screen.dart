@@ -99,123 +99,127 @@ class _LearningScreenState extends ConsumerState<LearningScreen> with SingleTick
        return Center(child: Text('Chưa có nội dung', style: TextStyle(color: textColor)));
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Header Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                module.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                module.description,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: 0.1, // TODO: Real progress
-                backgroundColor: Colors.white24,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '10% Hoàn thành',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Danh sách bài học',
-          style: TextStyle(
-            color: textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...module.lessons.map((lesson) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(learningControllerProvider.future),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Header Card
+          Container(
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5),
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: lesson.isCompleted 
-                      ? AppColors.success.withOpacity(0.1) 
-                      : Colors.grey.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  lesson.isCompleted ? Icons.check : Icons.play_arrow,
-                  color: lesson.isCompleted ? AppColors.success : AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              title: Text(
-                lesson.title,
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Text(
-                lesson.duration,
-                style: TextStyle(
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 12,
-                ),
-              ),
-              trailing: Icon(
-                Icons.open_in_new, // Indicate external link/player
-                color: isDark ? Colors.grey : Colors.grey[400],
-              ),
-              onTap: () {
-                // Navigate to In-App Player
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LessonPlayerScreen(lesson: lesson),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  module.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  module.description,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: 0.1, // TODO: Real progress
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '10% Hoàn thành',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-          );
-        }).toList(),
-      ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Danh sách bài học',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...module.lessons.map((lesson) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF3B4754) : const Color(0xFFDCE0E5),
+                ),
+              ),
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: lesson.isCompleted 
+                        ? AppColors.success.withOpacity(0.1) 
+                        : Colors.grey.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    lesson.isCompleted ? Icons.check : Icons.play_arrow,
+                    color: lesson.isCompleted ? AppColors.success : AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  lesson.title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  lesson.duration,
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.open_in_new, // Indicate external link/player
+                  color: isDark ? Colors.grey : Colors.grey[400],
+                ),
+                onTap: () {
+                  // Navigate to In-App Player
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => LessonPlayerScreen(lesson: lesson),
+                    ),
+                  );
+                },
+              ),
+            );
+          }).toList(),
+        ],
+      ),
     );
   }
 }

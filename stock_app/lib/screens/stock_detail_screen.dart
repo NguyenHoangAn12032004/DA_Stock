@@ -141,7 +141,31 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                         
                         final newState = ref.read(orderControllerProvider);
                         if (newState.hasError) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${newState.error}')));
+                          final errorMsg = newState.error.toString();
+                          if (errorMsg.contains("bảo trì") || errorMsg.contains("503")) {
+                             showDialog(
+                               context: context,
+                               builder: (ctx) => AlertDialog(
+                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                 title: const Row(
+                                   children: [
+                                     Icon(Icons.build_circle_outlined, color: Colors.orange),
+                                     SizedBox(width: 8),
+                                     Text("Bảo trì hệ thống", style: TextStyle(fontSize: 18)),
+                                   ],
+                                 ),
+                                 content: const Text("Hệ thống đang tạm ngừng giao dịch để nâng cấp. Vui lòng quay lại sau!"),
+                                 actions: [
+                                   TextButton(
+                                     onPressed: () => Navigator.of(ctx).pop(),
+                                     child: const Text("Đóng", style: TextStyle(fontWeight: FontWeight.bold)),
+                                   )
+                                 ],
+                               ),
+                             );
+                          } else {
+                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${newState.error}')));
+                          }
                         } else {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order Placed Successfully!')));
