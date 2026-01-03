@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:stock_app/l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../presentation/providers/settings_provider.dart';
 import '../presentation/providers/auth_provider.dart';
@@ -16,15 +17,17 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Local state is no longer needed for these preferences, as we watch providers directly.
   
-  void _showLanguageDialog(String currentLanguage) {
+  void _showLanguageDialog(Locale currentLocale) {
     showDialog(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Select Language'),
-        children: ['English', 'Vietnamese', 'French', 'Spanish']
-            .map((lang) => SimpleDialogOption(
+        title: Text(AppLocalizations.of(context)!.language),
+        children: [
+          {'name': 'English', 'code': 'en'},
+          {'name': 'Vietnamese', 'code': 'vi'}
+        ].map((lang) => SimpleDialogOption(
                   onPressed: () {
-                    ref.read(languageControllerProvider.notifier).setLanguage(lang);
+                    ref.read(languageControllerProvider.notifier).setLocale(Locale(lang['code']!));
                     Navigator.pop(context);
                   },
                   child: Padding(
@@ -32,8 +35,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(lang),
-                        if (currentLanguage == lang)
+                        Text(lang['name']!),
+                        if (currentLocale.languageCode == lang['code'])
                           const Icon(Icons.check, color: AppColors.primary),
                       ],
                     ),
@@ -100,13 +103,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Watch Providers
     final themeMode = ref.watch(themeModeControllerProvider);
-    final notificationsEnabled = ref.watch(notificationsControllerProvider); // This maps to "Price Alerts" in UI logic? Or generic?
-    // Let's assume Price Alerts = notificationsControllerProvider generic for now, or create separate. 
-    // The previous code mapped Price Alerts to notificationsControllerProvider. I'll stick to that.
+    final notificationsEnabled = ref.watch(notificationsControllerProvider); 
     
     final languageState = ref.watch(languageControllerProvider);
     final dataRefreshState = ref.watch(dataRefreshControllerProvider);
@@ -118,14 +120,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final isDarkMode = themeMode.value == ThemeMode.dark;
     final isPriceAlertsEnabled = notificationsEnabled.value ?? true;
-    final currentLanguage = languageState.value ?? 'English';
+    final Locale currentLocale = languageState.value ?? const Locale('en');
     final currentRefreshRate = dataRefreshState.value ?? 'Auto';
     final isNewsAlertsEnabled = newsAlertsState.value ?? true;
     final isAiInsightsEnabled = aiInsightsState.value ?? false;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settings),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -149,7 +151,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                    _buildSwitchItem(
                     context,
                     Icons.contrast,
-                    'Dark Mode',
+                    l10n.darkMode,
                     isDarkMode,
                     (val) {
                       final newMode = val ? ThemeMode.dark : ThemeMode.light;
@@ -160,9 +162,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   _buildNavItem(
                     context,
                     Icons.language,
-                    'Language',
-                    currentLanguage,
-                    onTap: () => _showLanguageDialog(currentLanguage),
+                    l10n.language,
+                    currentLocale.languageCode == 'vi' ? 'Tiếng Việt' : 'English',
+                    onTap: () => _showLanguageDialog(currentLocale),
                   ),
                   const Divider(height: 1),
                   _buildNavItem(
@@ -192,7 +194,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   _buildSwitchItem(
                     context,
                     Icons.attach_money,
-                    'Price Alerts',
+                    'Price Alerts', // TODO: Add key if needed
                     isPriceAlertsEnabled,
                     (val) {
                       ref.read(notificationsControllerProvider.notifier).toggle(val);
@@ -236,7 +238,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Icons.lock,
                     'Privacy & Data Usage',
                     '',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PrivacyPolicyScreen())),
                   ),
                   const Divider(height: 1),
                   _buildNavItem(
@@ -244,7 +246,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Icons.description,
                     'Terms of Service',
                     '',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsOfServiceScreen())),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TermsOfServiceScreen())),
                   ),
                 ],
               ),
@@ -268,7 +270,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Icons.help,
                     'Help Center',
                     '',
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen())),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HelpSupportScreen())),
                   ),
                   const Divider(height: 1),
                   _buildNavItem(
@@ -292,9 +294,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                    }
                 },
                 icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text(
-                  'Log Out',
-                  style: TextStyle(
+                label: Text(
+                  l10n.logout,
+                  style: const TextStyle(
                     color: Colors.red,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

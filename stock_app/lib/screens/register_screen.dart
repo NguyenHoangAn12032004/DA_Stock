@@ -4,6 +4,8 @@ import '../theme/app_colors.dart';
 import '../presentation/providers/auth_provider.dart';
 import 'main_screen.dart';
 
+import 'package:stock_app/l10n/app_localizations.dart';
+
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -20,9 +22,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _termsAccepted = false;
 
   void _handleRegister() {
+    final l10n = AppLocalizations.of(context)!;
     if (!_termsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept the Terms and Conditions')),
+        SnackBar(content: Text(l10n.pleaseAcceptTerms)),
       );
       return;
     }
@@ -38,11 +41,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Listen to Auth State
     ref.listen<AsyncValue>(authControllerProvider, (prev, next) {
       if (next is AsyncError) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration Failed: ${next.error}')),
+          SnackBar(content: Text('${l10n.registrationFailed}: ${next.error}')),
         );
       } else if (next is AsyncData && next.value != null) {
         // Navigate
@@ -92,7 +96,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Create your account',
+              l10n.createAccountTitle,
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -101,7 +105,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Start your investment journey today',
+              l10n.startJourney,
               style: TextStyle(
                 fontSize: 16,
                 color: isDark
@@ -111,26 +115,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 32),
             // Form
-            _buildLabel('Full Name', isDark),
+            _buildLabel(l10n.fullName, isDark),
             const SizedBox(height: 8),
             TextField(
               controller: _fullNameController,
-              decoration: _inputDecoration('e.g. John Doe', isDark),
+              decoration: _inputDecoration(l10n.fullNameHint, isDark),
             ),
             const SizedBox(height: 16),
-            _buildLabel('Email Address', isDark),
+            _buildLabel(l10n.email, isDark),
             const SizedBox(height: 8),
             TextField(
               controller: _emailController,
               decoration: _inputDecoration('name@example.com', isDark),
             ),
             const SizedBox(height: 16),
-            _buildLabel('Password', isDark),
+            _buildLabel(l10n.password, isDark),
             const SizedBox(height: 8),
             TextField(
               controller: _passwordController,
               obscureText: !_isPasswordVisible,
-              decoration: _inputDecoration('At least 8 characters', isDark)
+              decoration: _inputDecoration(l10n.passwordHint, isDark)
                   .copyWith(
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -167,7 +171,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Password strength',
+                  l10n.passwordStrength,
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -175,9 +179,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         : const Color(0xFF60758A),
                   ),
                 ),
-                const Text(
-                  'Good',
-                  style: TextStyle(
+                Text(
+                  l10n.good,
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.success,
                     fontWeight: FontWeight.bold,
@@ -186,11 +190,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            _buildLabel('Confirm Password', isDark),
+            _buildLabel(l10n.confirmPassword, isDark),
             const SizedBox(height: 8),
             TextField(
               obscureText: true,
-              decoration: _inputDecoration('Re-enter password', isDark),
+              decoration: _inputDecoration(l10n.confirmPasswordHint, isDark),
             ),
             const SizedBox(height: 16),
             // Terms
@@ -207,7 +211,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 Expanded(
                   child: Text(
-                    'I agree to the Terms of Service and Privacy Policy',
+                    l10n.agreeTerms,
                     style: TextStyle(
                       fontSize: 14,
                       color: isDark
@@ -239,9 +243,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Create Account',
-                        style: TextStyle(
+                    : Text(
+                        l10n.createAccountButton,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

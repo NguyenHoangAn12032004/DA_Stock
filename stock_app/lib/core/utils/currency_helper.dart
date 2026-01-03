@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:intl/intl.dart';
 
 class CurrencyHelper {
@@ -24,13 +25,13 @@ class CurrencyHelper {
     return false; 
   }
 
-  static String format(double price, {required String symbol, required String language}) {
-    final isVietnamese = language == 'Vietnamese';
+  static String format(double price, {required String symbol, required Locale locale}) {
+    final isVietnamese = locale.languageCode == 'vi';
     final foreign = isForeign(symbol);
 
     double finalPrice = price;
     String currencySymbol = isVietnamese ? '₫' : '\$';
-    String locale = isVietnamese ? 'vi_VN' : 'en_US';
+    String localeCode = isVietnamese ? 'vi_VN' : 'en_US';
     int decimalDigits = 2; // Default
 
     if (isVietnamese) {
@@ -53,15 +54,15 @@ class CurrencyHelper {
 
     // NumberFormat handles the formatting (commas vs dots)
     return NumberFormat.currency(
-      locale: locale, 
+      locale: localeCode, 
       symbol: currencySymbol,
       decimalDigits: decimalDigits
     ).format(finalPrice);
   }
   
   // Helper to get raw converted value (for sorting or calcs)
-  static double convert(double price, {required String symbol, required String language}) {
-    final isVietnamese = language == 'Vietnamese';
+  static double convert(double price, {required String symbol, required Locale locale}) {
+    final isVietnamese = locale.languageCode == 'vi';
     final foreign = isForeign(symbol);
     
     if (isVietnamese && foreign) {

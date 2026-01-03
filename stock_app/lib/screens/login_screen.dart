@@ -5,6 +5,8 @@ import '../presentation/providers/auth_provider.dart';
 import '../widgets/auth_wrapper.dart';
 import 'register_screen.dart';
 
+import 'package:stock_app/l10n/app_localizations.dart';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -41,10 +43,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _showForgotPasswordDialog() {
     final emailController = TextEditingController();
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
+        title: Text(l10n.forgotPassword),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -52,9 +55,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.email,
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -84,6 +87,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    
     // Listen to Auth State
     ref.listen<AsyncValue>(authControllerProvider, (prev, next) {
       if (next is AsyncError) {
@@ -194,14 +199,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   // Form
-                  _buildLabel('Email or Username', isDark),
+                  _buildLabel(l10n.email, isDark),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _emailController,
                     decoration: _inputDecoration('Enter your email', isDark),
                   ),
                   const SizedBox(height: 16),
-                  _buildLabel('Password', isDark),
+                  _buildLabel(l10n.password, isDark),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _passwordController,
@@ -230,9 +235,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: _showForgotPasswordDialog,
-                      child: const Text(
-                        'Forgot password?',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.forgotPassword,
+                        style: const TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w500,
                         ),
@@ -260,19 +265,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Row(
+                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Login',
-                                  style: TextStyle(
+                                  l10n.loginButton,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                SizedBox(width: 8),
-                                Icon(Icons.login, color: Colors.white, size: 20),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.login, color: Colors.white, size: 20),
                               ],
                             ),
                     ),
@@ -281,8 +286,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        "Don't have an account? ",
+                       Text(
+                        "${l10n.noAccount} ",
                         style: TextStyle(
                           color: isDark
                               ? const Color(0xFF9CABBA)
@@ -297,9 +302,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 builder: (context) => const RegisterScreen()),
                           );
                         },
-                        child: const Text(
-                          'Sign up',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.registerButton,
+                          style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                           ),

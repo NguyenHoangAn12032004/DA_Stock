@@ -61,16 +61,21 @@ class NotificationsController extends _$NotificationsController {
 @riverpod
 class LanguageController extends _$LanguageController {
   @override
-  Future<String> build() async {
+  Future<Locale> build() async {
     final result = await ref.read(settingsRepositoryProvider).getLanguage();
-    return result.fold((l) => 'English', (r) => r);
+    return result.fold(
+      (l) => const Locale('en'), 
+      (r) => r == 'Vietnamese' ? const Locale('vi') : const Locale('en')
+    );
   }
 
-  Future<void> setLanguage(String language) async {
-    state = AsyncData(language);
-    await ref.read(settingsRepositoryProvider).setLanguage(language);
+  Future<void> setLocale(Locale locale) async {
+    state = AsyncData(locale);
+    final languageCode = locale.languageCode == 'vi' ? 'Vietnamese' : 'English';
+    await ref.read(settingsRepositoryProvider).setLanguage(languageCode);
   }
 }
+
 
 @riverpod
 class DataRefreshController extends _$DataRefreshController {

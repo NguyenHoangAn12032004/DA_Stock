@@ -14,7 +14,7 @@ class StockListWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stockIds = ref.watch(stockListNotifierProvider);
-    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
@@ -49,7 +49,7 @@ class StockListWidget extends ConsumerWidget {
                 final stock = stocks[index];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _buildStockCard(context, stock, isDark, language),
+                  child: _buildStockCard(context, stock, isDark, locale),
                 );
               },
             );
@@ -72,7 +72,7 @@ class StockListWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildStockCard(BuildContext context, StockEntity stock, bool isDark, String language) {
+  Widget _buildStockCard(BuildContext context, StockEntity stock, bool isDark, Locale locale) {
     final isUp = stock.changePercent >= 0;
     final color = isUp ? AppColors.success : AppColors.danger;
 
@@ -144,7 +144,7 @@ class StockListWidget extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  CurrencyHelper.format(stock.price, symbol: stock.symbol, language: language),
+                  CurrencyHelper.format(stock.price, symbol: stock.symbol, locale: locale),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,

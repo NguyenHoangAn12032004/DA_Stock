@@ -65,7 +65,7 @@ final getPortfolioUseCaseProvider =
 // ignore: unused_element
 typedef GetPortfolioUseCaseRef = AutoDisposeProviderRef<GetPortfolioUseCase>;
 String _$portfolioControllerHash() =>
-    r'cd93431cdd93735119f0818741718d94f007410b';
+    r'fe75d401b5f0fbe0fb5536d9aeb7254d2c6311be';
 
 /// See also [PortfolioController].
 @ProviderFor(PortfolioController)

@@ -11,6 +11,9 @@ import 'core/services/notification_service.dart';
 
 import 'presentation/providers/settings_provider.dart';
 
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:stock_app/l10n/app_localizations.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -47,6 +50,7 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeControllerProvider);
+    final localeAsync = ref.watch(languageControllerProvider);
     
     return themeMode.when(
       data: (mode) => MaterialApp(
@@ -54,8 +58,16 @@ class MyApp extends ConsumerWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: mode,
-        home: showOnboarding ? const OnboardingScreen() : const AuthWrapper(),
         debugShowCheckedModeBanner: false,
+        locale: localeAsync.value, // Use the locale from provider
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: showOnboarding ? const OnboardingScreen() : const AuthWrapper(),
       ),
       loading: () => const MaterialApp(home: Scaffold(body: Center(child: CircularProgressIndicator()))),
       error: (_, __) => const MaterialApp(home: Scaffold(body: Center(child: Text('Error loading theme')))),

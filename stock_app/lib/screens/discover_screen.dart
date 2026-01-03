@@ -144,7 +144,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
 
   Widget _buildStockList(bool isDark, String type) {
     // Watch language
-    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
     // Watch Forex to trigger update
     ref.watch(forexRateProvider); // Fire and forget (it updates Helper static)
 
@@ -245,7 +245,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        CurrencyHelper.format(price, symbol: stock['symbol'], language: language),
+                        CurrencyHelper.format(price, symbol: stock['symbol'], locale: locale),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,

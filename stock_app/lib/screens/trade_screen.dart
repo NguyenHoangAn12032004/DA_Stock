@@ -532,7 +532,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     if (_stockData.isEmpty) return const SizedBox();
     
     // Watch language
-    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
 
     // Use realtime data if available, otherwise fallback to historical data
     final latestClose = _realtimePrice ?? _stockData.last.close;
@@ -552,7 +552,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                CurrencyHelper.format(latestClose, symbol: _currentSymbol, language: language),
+                CurrencyHelper.format(latestClose, symbol: _currentSymbol, locale: locale),
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -562,10 +562,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
               Row(
                 children: [
                   Text(
-                    '${isPositive ? '+' : ''}${CurrencyHelper.format(changeValue, symbol: _currentSymbol, language: language).replaceAll(RegExp(r'[^\d.,-]'), '')}', // Hack to just get number part if desired, or just format normally
-                    // Actually, formatPrice normally returns value. CurrencyHelper returns formatted string.
-                    // Let's just use CurrencyHelper.format directly.
-                    // Wait, changeValue in money terms.
+                    '${isPositive ? '+' : ''}${CurrencyHelper.format(changeValue, symbol: _currentSymbol, locale: locale).replaceAll(RegExp(r'[^\d.,-]'), '')}', 
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -792,10 +789,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Consumer( // Access language for this specific text
                      builder: (context, ref, _) {
-                       final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+                       final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
                        return Text(
                          _stockData.isNotEmpty 
-                           ? CurrencyHelper.format(_stockData.last.close, symbol: _currentSymbol, language: language)
+                           ? CurrencyHelper.format(_stockData.last.close, symbol: _currentSymbol, locale: locale)
                            : '---',
                          style: const TextStyle(
                            color: AppColors.success,

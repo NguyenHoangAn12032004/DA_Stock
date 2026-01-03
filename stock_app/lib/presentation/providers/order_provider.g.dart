@@ -61,7 +61,7 @@ final placeOrderUseCaseProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PlaceOrderUseCaseRef = AutoDisposeProviderRef<PlaceOrderUseCase>;
-String _$orderControllerHash() => r'800876249387c7b4ce7cae169e5672ccbb088dd2';
+String _$orderControllerHash() => r'405c27bcc398ad05cdaec5d77e1ca684d25eaa4e';
 
 /// See also [OrderController].
 @ProviderFor(OrderController)

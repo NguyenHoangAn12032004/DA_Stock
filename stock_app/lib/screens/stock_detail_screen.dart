@@ -281,7 +281,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
   Widget _buildHeaderStats(bool isDark) {
     // Watch realtime data
     final stockListAsync = ref.watch(stockListNotifierProvider);
-    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
     
     return stockListAsync.when(
       data: (stocks) {
@@ -307,7 +307,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    CurrencyHelper.format(stock.price, symbol: _currentSymbol, language: language),
+                    CurrencyHelper.format(stock.price, symbol: _currentSymbol, locale: locale),
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,

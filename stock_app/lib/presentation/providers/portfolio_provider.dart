@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/dio_client.dart';
 import '../../data/datasources/portfolio_remote_datasource.dart';
@@ -143,19 +144,19 @@ class PortfolioController extends _$PortfolioController {
     }
 
     // 3. Calculate Real-time Equity & PnL (With FX Conversion)
-    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
+    final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
     
     double invested = 0;
     double currentHoldingsValue = 0;
 
     for (var h in portfolio!.holdings) {
       // Convert Average Price (Cost)
-      final avgPriceConverted = CurrencyHelper.convert(h.averagePrice, symbol: h.symbol, language: language);
+      final avgPriceConverted = CurrencyHelper.convert(h.averagePrice, symbol: h.symbol, locale: locale);
       invested += h.quantity * avgPriceConverted;
       
       // Get Raw Price -> Convert
       final rawPrice = rawPrices[h.symbol] ?? h.averagePrice;
-      final priceConverted = CurrencyHelper.convert(rawPrice, symbol: h.symbol, language: language);
+      final priceConverted = CurrencyHelper.convert(rawPrice, symbol: h.symbol, locale: locale);
       
       currentPrices[h.symbol] = priceConverted;
       currentHoldingsValue += h.quantity * priceConverted;
@@ -163,7 +164,7 @@ class PortfolioController extends _$PortfolioController {
 
     // Convert Cash
     // Cash is assumed 'VND' units (Local).
-    final double cash = CurrencyHelper.convert(portfolio!.balance, symbol: 'VND', language: language);
+    final double cash = CurrencyHelper.convert(portfolio!.balance, symbol: 'VND', locale: locale);
     
     final double totalEquity = cash + currentHoldingsValue;
     

@@ -16,6 +16,8 @@ import 'admin_screen.dart';
 import 'social_screen.dart'; // Import Social Screen
 import '../domain/entities/user_entity.dart';
 
+import 'package:stock_app/l10n/app_localizations.dart';
+
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -49,13 +51,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF1A2633) : Colors.white;
     final navBarColor = isDark ? const Color(0xFF101922) : Colors.white;
 
     return Scaffold(
       // Drawer for "Remaining Functions"
-      drawer: _buildDrawer(isDark),
+      drawer: _buildDrawer(isDark, l10n),
       body: IndexedStack(
         index: _selectedIndex,
         children: _screens,
@@ -83,11 +86,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.bar_chart_outlined, Icons.bar_chart, 'Market'),
-              _buildNavItem(1, Icons.explore_outlined, Icons.explore, 'Discover'),
+              _buildNavItem(0, Icons.bar_chart_outlined, Icons.bar_chart, l10n.market),
+              _buildNavItem(1, Icons.explore_outlined, Icons.explore, l10n.discover),
               const SizedBox(width: 48), // Space for FAB
-              _buildNavItem(2, Icons.newspaper_outlined, Icons.newspaper, 'News'),
-              _buildNavItem(3, Icons.pie_chart_outline, Icons.pie_chart, 'Portfolio'),
+              _buildNavItem(2, Icons.newspaper_outlined, Icons.newspaper, l10n.news),
+              _buildNavItem(3, Icons.pie_chart_outline, Icons.pie_chart, l10n.portfolio),
             ],
           ),
         ),
@@ -128,7 +131,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildDrawer(bool isDark) {
+  Widget _buildDrawer(bool isDark, AppLocalizations l10n) {
     final userState = ref.watch(authControllerProvider);
     final user = userState.asData?.value;
     final displayName = user?.displayName ?? 'InvestMate User';
@@ -176,14 +179,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ],
             ),
           ),
-          _buildDrawerItem(Icons.smart_toy_outlined, 'AI Assistant', () {
+          _buildDrawerItem(Icons.smart_toy_outlined, l10n.aiAssistant, () {
             Navigator.pop(context); // Close drawer
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const AiAssistantScreen()),
             );
           }, isDark),
-          _buildDrawerItem(Icons.groups_outlined, 'Social Trading', () {
+          _buildDrawerItem(Icons.groups_outlined, l10n.socialTrading, () {
             Navigator.pop(context);
             Navigator.push(
               context,
@@ -192,32 +195,32 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           }, isDark),
 
           if (user?.role == UserRole.admin)
-            _buildDrawerItem(Icons.admin_panel_settings, 'Admin Dashboard', () {
+            _buildDrawerItem(Icons.admin_panel_settings, l10n.adminDashboard, () {
               Navigator.pop(context); // Close drawer
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AdminScreen()),
               );
             }, isDark),
-          _buildDrawerItem(Icons.school_outlined, 'Learning Center', () {
+          _buildDrawerItem(Icons.school_outlined, l10n.learningCenter, () {
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const LearningScreen()),
             );
           }, isDark),
-          _buildDrawerItem(Icons.pie_chart_outline, 'My Portfolio', () {
+          _buildDrawerItem(Icons.pie_chart_outline, l10n.myPortfolio, () {
             Navigator.pop(context);
             _onItemTapped(3); // Switch to Portfolio tab (Index 3)
           }, isDark),
-          _buildDrawerItem(Icons.settings_outlined, 'Settings', () {
+          _buildDrawerItem(Icons.settings_outlined, l10n.settings, () {
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const SettingsScreen()),
             );
           }, isDark),
-          _buildDrawerItem(Icons.notifications_outlined, 'Price Alerts', () {
+          _buildDrawerItem(Icons.notifications_outlined, l10n.priceAlerts, () {
             Navigator.pop(context);
             Navigator.push(
                context,
@@ -225,14 +228,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             );
           }, isDark),
           const Divider(),
-          _buildDrawerItem(Icons.help_outline, 'Help & Support', () {
+          _buildDrawerItem(Icons.help_outline, l10n.helpSupport, () {
             Navigator.pop(context);
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const HelpSupportScreen()),
             );
           }, isDark),
-          _buildDrawerItem(Icons.logout, 'Log Out', () {
+          _buildDrawerItem(Icons.logout, l10n.logout, () {
              ref.read(authControllerProvider.notifier).signOut();
           }, isDark),
         ],

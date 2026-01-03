@@ -80,12 +80,12 @@ final notificationsControllerProvider =
 
 typedef _$NotificationsController = AutoDisposeAsyncNotifier<bool>;
 String _$languageControllerHash() =>
-    r'928c61bba5dfb528f05d5dc25c845e8c6253b89f';
+    r'0348d7bc00e0e81f8af346ed9fabb1b0a83d845a';
 
 /// See also [LanguageController].
 @ProviderFor(LanguageController)
 final languageControllerProvider =
-    AutoDisposeAsyncNotifierProvider<LanguageController, String>.internal(
+    AutoDisposeAsyncNotifierProvider<LanguageController, Locale>.internal(
       LanguageController.new,
       name: r'languageControllerProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -95,7 +95,7 @@ final languageControllerProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$LanguageController = AutoDisposeAsyncNotifier<String>;
+typedef _$LanguageController = AutoDisposeAsyncNotifier<Locale>;
 String _$dataRefreshControllerHash() =>
     r'4b07a09a87ce0ea38b32bf843b70e9943d5f366d';
 

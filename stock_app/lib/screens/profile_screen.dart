@@ -7,24 +7,26 @@ import 'personal_info_screen.dart';
 import 'security_settings_screen.dart';
 import 'investment_preferences_screen.dart';
 
+import 'package:stock_app/l10n/app_localizations.dart';
+
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final userState = ref.watch(authControllerProvider);
     final user = userState.asData?.value;
 
     final displayName = user?.displayName ?? 'User';
     final email = user?.email ?? 'user@example.com';
-    // Use a default avatar if none provided (Firebase User doesn't adhere to a strict photoURL yet in our MVP, 
-    // but we can add logic later. For now, using the 'A' simplistic avatar or the existing placeholder).
+    // Use a default avatar if none provided
     const avatarUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuBhADJ-5Vc3CKdOGmnD51JZGr5iKMVEbDGqTnIgwM-lJI9A2J8KjSvLXH2r-bdy9aN97wd16OwqbZGBaAtOXSxfi1AtdM2I3b9va8aRSaKwIdMCmNukNP1R8am42ThRwmOgo0WluO3uOM1zXMz1gVR2ZCVVNRox2ipNn9ln8srtQ6FyLMhuw2Syrh-DQtUHr3_GHhMlPTP2WAhryzhLHhYVwHHE2Qb-nv2HoaUCsuGkDDeZx8LIy9IIz3EjD9i19re46xw8Ftz4sHDE";
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(l10n.profile),
         centerTitle: true,
         actions: [
           IconButton(
@@ -86,7 +88,7 @@ class ProfileScreen extends ConsumerWidget {
                         child: GestureDetector(
                           onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Edit Profile coming soon!')),
+                                SnackBar(content: Text(l10n.editProfileComingSoon)),
                               );
                           },
                           child: Container(
@@ -159,7 +161,7 @@ class ProfileScreen extends ConsumerWidget {
                   child: _buildQuickStat(
                     context,
                     value: "Oct '23",
-                    label: 'Member Since',
+                    label: l10n.memberSince,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -167,7 +169,7 @@ class ProfileScreen extends ConsumerWidget {
                   child: _buildQuickStat(
                     context,
                     value: '12',
-                    label: 'Stocks Watched',
+                    label: l10n.stocksWatched,
                   ),
                 ),
               ],
@@ -179,7 +181,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 12),
                 child: Text(
-                  'ACCOUNT',
+                  l10n.account,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -206,7 +208,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSettingItem(
                     context,
                     Icons.person,
-                    'Personal information',
+                    l10n.personalInfo,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -217,7 +219,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSettingItem(
                     context,
                     Icons.lock,
-                    'Security settings',
+                    l10n.securitySettings,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -228,7 +230,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSettingItem(
                     context,
                     Icons.tune,
-                    'Investment preferences',
+                    l10n.investmentPrefs,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -246,7 +248,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 12),
                 child: Text(
-                  'FEATURES',
+                  l10n.features,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -273,8 +275,8 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSwitchItem(
                     context,
                     Icons.school,
-                    'Paper Trading Mode',
-                    'Practice without risk',
+                    l10n.paperTrading,
+                    l10n.paperTradingDesc,
                     true,
                     (val) {},
                   ),
@@ -298,7 +300,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSettingItem(
                     context,
                     Icons.settings,
-                    'General Settings',
+                    l10n.generalSettings,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -309,7 +311,7 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSettingItem(
                     context,
                     Icons.help,
-                    'Help & Support',
+                    l10n.helpSupport,
                     onTap: () {},
                   ),
                 ],
@@ -327,9 +329,9 @@ class ProfileScreen extends ConsumerWidget {
                     }
                 },
                 icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text(
-                  'Log Out',
-                  style: TextStyle(
+                label: Text(
+                  l10n.logout,
+                  style: const TextStyle(
                     color: Colors.red,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

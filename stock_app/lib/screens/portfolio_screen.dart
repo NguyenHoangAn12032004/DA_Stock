@@ -205,13 +205,13 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
 
   Widget _buildHoldingItem(HoldingEntity holding, Map<String, double> currentPrices, bool isDark) {
     // 1. Localization
-    final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
-    final isVietnamese = language == 'Vietnamese';
-    final locale = isVietnamese ? 'vi_VN' : 'en_US';
+    final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
+    final isVietnamese = locale.languageCode == 'vi';
     final symbol = isVietnamese ? '₫' : '\$';
+    final localeCode = isVietnamese ? 'vi_VN' : 'en_US'; // Keep for other uses if needed, or remove if unused.
 
     // Cost Basis (Need to convert RAW averagePrice to Target Currency)
-    final avgPriceConverted = CurrencyHelper.convert(holding.averagePrice, symbol: holding.symbol, language: language);
+    final avgPriceConverted = CurrencyHelper.convert(holding.averagePrice, symbol: holding.symbol, locale: locale);
     
     // Current Market Value (Already converted in Provider)
     final currentPrice = currentPrices[holding.symbol] ?? avgPriceConverted;
@@ -254,7 +254,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                  crossAxisAlignment: CrossAxisAlignment.end,
                  children: [
                    Text(
-                     NumberFormat.currency(locale: locale, symbol: symbol).format(totalValue),
+                     NumberFormat.currency(locale: locale.toString(), symbol: symbol).format(totalValue),
                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                    ),
                    Row(
@@ -264,7 +264,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                          style: TextStyle(fontSize: 12, color: pnlColor, fontWeight: FontWeight.bold),
                        ),
                        Text(
-                         " | ${NumberFormat.currency(locale: locale, symbol: symbol).format(currentPrice)}",
+                         " | ${NumberFormat.currency(locale: locale.toString(), symbol: symbol).format(currentPrice)}",
                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey : Colors.grey[600]),
                        ),
                      ],
@@ -302,11 +302,11 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
     );
   }
 
-  Widget _buildOrderItem(OrderEntity order, bool isDark) {
-     // 1. Localization
-     final language = ref.watch(languageControllerProvider).valueOrNull ?? 'English';
-     
-     final isBuy = order.side == OrderSide.buy;
+   Widget _buildOrderItem(OrderEntity order, bool isDark) {
+      // 1. Localization
+      final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
+      
+      final isBuy = order.side == OrderSide.buy;
      final statusColor = _getStatusColor(order.status);
 
      return Card(
@@ -343,12 +343,12 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    "${order.quantity} @ ${CurrencyHelper.format(order.price, symbol: order.symbol, language: language)}",
+                    "${order.quantity} @ ${CurrencyHelper.format(order.price, symbol: order.symbol, locale: locale)}",
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    CurrencyHelper.format(order.price * order.quantity, symbol: order.symbol, language: language),
+                    CurrencyHelper.format(order.price * order.quantity, symbol: order.symbol, locale: locale),
                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isBuy ? AppColors.danger : AppColors.success), 
                   ),
                   const SizedBox(height: 4),
