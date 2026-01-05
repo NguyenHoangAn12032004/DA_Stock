@@ -14,12 +14,19 @@ import 'presentation/providers/settings_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:stock_app/l10n/app_localizations.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart'; // Added for settings
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
+    );
+    // Explicitly set persistence to improve emulator stability
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
   } catch (e) {
      print("Firebase initialization error: $e");

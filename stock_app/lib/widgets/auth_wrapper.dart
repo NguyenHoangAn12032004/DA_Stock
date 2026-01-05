@@ -9,7 +9,10 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateChangesProvider);
+    // [MODIFIED] Watch authControllerProvider instead of Stream directly.
+    // This allows manual state updates (like signOut setting null) to reflect IMMEDIATELY 
+    // without waiting for the Stream (which avoids 'user@example.com' glitch).
+    final authState = ref.watch(authControllerProvider);
 
     return authState.when(
       data: (user) {

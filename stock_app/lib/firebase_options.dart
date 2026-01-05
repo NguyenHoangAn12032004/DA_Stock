@@ -41,46 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAttjaOSe49sk8rNYNHlh8bOQYTVXoJnXI',
-    appId: '1:907097113298:web:0dc7b314e945ce4ee1230b',
-    messagingSenderId: '907097113298',
-    projectId: 'myapplication-25392609',
-    authDomain: 'myapplication-25392609.firebaseapp.com',
-    storageBucket: 'myapplication-25392609.firebasestorage.app',
+    apiKey: 'AIzaSyDVT81FKL8AISHOHBoQkqmqzSzk88bzG84',
+    appId: '1:190600080314:web:c2a7d786e61c7f1acf0b83',
+    messagingSenderId: '190600080314',
+    projectId: 'dastock-11239',
+    authDomain: 'dastock-11239.firebaseapp.com',
+    storageBucket: 'dastock-11239.firebasestorage.app',
+    measurementId: 'G-GP6N2WDN70',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCavVNYIqAY7ZmsmXA9OOJX2JhQcOA5MeA',
-    appId: '1:907097113298:android:e82e3e67c6e0b81de1230b',
-    messagingSenderId: '907097113298',
-    projectId: 'myapplication-25392609',
-    storageBucket: 'myapplication-25392609.firebasestorage.app',
+    apiKey: 'AIzaSyBoOyUPxwr0FrxM0NkEEE3VeSPITInUwII',
+    appId: '1:190600080314:android:db530140a998fcdecf0b83',
+    messagingSenderId: '190600080314',
+    projectId: 'dastock-11239',
+    storageBucket: 'dastock-11239.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBsK5y8Uj1FU4HdqHNMyD1nHBIHY5iRp9g',
-    appId: '1:907097113298:ios:7e315e34b5d45a70e1230b',
-    messagingSenderId: '907097113298',
-    projectId: 'myapplication-25392609',
-    storageBucket: 'myapplication-25392609.firebasestorage.app',
+    apiKey: 'AIzaSyAF5UjB93kXiPjkfCoToMTHnLymxjQoBG0',
+    appId: '1:190600080314:ios:65a86348d02a4557cf0b83',
+    messagingSenderId: '190600080314',
+    projectId: 'dastock-11239',
+    storageBucket: 'dastock-11239.firebasestorage.app',
     iosBundleId: 'com.example.stockApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBsK5y8Uj1FU4HdqHNMyD1nHBIHY5iRp9g',
-    appId: '1:907097113298:ios:7e315e34b5d45a70e1230b',
-    messagingSenderId: '907097113298',
-    projectId: 'myapplication-25392609',
-    storageBucket: 'myapplication-25392609.firebasestorage.app',
+    apiKey: 'AIzaSyAF5UjB93kXiPjkfCoToMTHnLymxjQoBG0',
+    appId: '1:190600080314:ios:65a86348d02a4557cf0b83',
+    messagingSenderId: '190600080314',
+    projectId: 'dastock-11239',
+    storageBucket: 'dastock-11239.firebasestorage.app',
     iosBundleId: 'com.example.stockApp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAttjaOSe49sk8rNYNHlh8bOQYTVXoJnXI',
-    appId: '1:907097113298:web:1fe05ffb033423a2e1230b',
-    messagingSenderId: '907097113298',
-    projectId: 'myapplication-25392609',
-    authDomain: 'myapplication-25392609.firebaseapp.com',
-    storageBucket: 'myapplication-25392609.firebasestorage.app',
+    apiKey: 'AIzaSyDVT81FKL8AISHOHBoQkqmqzSzk88bzG84',
+    appId: '1:190600080314:web:b17fc934eae7014fcf0b83',
+    messagingSenderId: '190600080314',
+    projectId: 'dastock-11239',
+    authDomain: 'dastock-11239.firebaseapp.com',
+    storageBucket: 'dastock-11239.firebasestorage.app',
+    measurementId: 'G-VVJEVB7XD4',
   );
+
 }

@@ -6,7 +6,9 @@
 *.tmp
 # Secrets
 serviceAccountKey.json
+serviceAccountKey2.json
 **/serviceAccountKey.json
+**/serviceAccountKey2.json
 *.keystore
 *.jks
 

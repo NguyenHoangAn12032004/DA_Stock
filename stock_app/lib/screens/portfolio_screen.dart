@@ -100,7 +100,26 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, st) => Center(child: Text("Error: $e")),
+      error: (e, st) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text("Error loading assets", style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+            const SizedBox(height: 8),
+            Text(e.toString().replaceAll("Exception:", "").trim(), textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.grey : Colors.grey[600], fontSize: 12)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                ref.read(portfolioControllerProvider.notifier).refresh();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text("Retry"),
+            )
+          ],
+        ),
+      ),
     );
   }
 

@@ -145,9 +145,9 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
         ],
         bottom: TabBar(
            controller: _tabController,
-           tabs: const [
+           tabs: [
              Tab(text: "Overview"),
-             Tab(text: "Users (10k+)"), // Optimized
+             Tab(text: "Users (${_stats?['total_users'] ?? '...'})"), // Real Count
              Tab(text: "CMS"),
            ]
         )
@@ -429,34 +429,6 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
 
   
   Widget _buildCmsTab(Color textColor) { 
-    return Center(
-      child: Column(
-         mainAxisAlignment: MainAxisAlignment.center,
-         children: [
-             const Icon(Icons.school, size: 80, color: Colors.blue),
-             const SizedBox(height: 16),
-             Text("Stock Academy CMS", style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.bold)),
-             Padding(
-               padding: const EdgeInsets.all(16.0),
-               child: Text("Manage Modules, Lessons, and Video Content directly.", 
-                 textAlign: TextAlign.center,
-                 style: TextStyle(color: textColor.withOpacity(0.7))
-               ),
-             ),
-             ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)
-                ),
-                icon: const Icon(Icons.edit, color: Colors.white),
-                label: const Text("Open Course Editor", style: TextStyle(color: Colors.white, fontSize: 16)),
-                onPressed: () {
-                   // Navigate to CMS
-                   Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminCourseScreen()));
-                },
-               )
-         ]
-      ),
-    );
+    return const AdminCmsTab();
   }
 }

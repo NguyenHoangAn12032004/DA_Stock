@@ -3,43 +3,65 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../domain/entities/course_entity.dart';
 
-class AdminCourseScreen extends StatefulWidget {
-  const AdminCourseScreen({super.key});
+class AdminCmsTab extends StatefulWidget {
+  const AdminCmsTab({super.key});
 
   @override
-  State<AdminCourseScreen> createState() => _AdminCourseScreenState();
+  State<AdminCmsTab> createState() => _AdminCmsTabState();
 }
 
-class _AdminCourseScreenState extends State<AdminCourseScreen> {
+class _AdminCmsTabState extends State<AdminCmsTab> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF111418) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        title: const Text("CMS: Course Manager"),
-        backgroundColor: bgColor,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('courses').orderBy('order').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          // --- HEADER (Moved from AdminScreen) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0),
+            child: Column(
+              children: [
+                 const Icon(Icons.school, size: 60, color: Colors.blue),
+                 const SizedBox(height: 12),
+                 Text("Stock Academy CMS", style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.bold)),
+                 Padding(
+                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                   child: Text("Manage Modules, Lessons, and Video Content directly.", 
+                     textAlign: TextAlign.center,
+                     style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 12)
+                   ),
+                 ),
+              ],
+            ),
+          ),
 
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("No courses found. Seed them first!"));
+          // --- BODY (Course List) ---
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('courses').orderBy('order').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final course = Course.fromJson(docs[index].id, docs[index].data() as Map<String, dynamic>);
-              return _buildCourseCard(course, textColor);
-            },
-          );
-        },
+                final docs = snapshot.data!.docs;
+                if (docs.isEmpty) return const Center(child: Text("No courses found. Seed them first!"));
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 80), // Space for FAB
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final course = Course.fromJson(docs[index].id, docs[index].data() as Map<String, dynamic>);
+                    return _buildCourseCard(course, textColor);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCourseDialog(context, null),

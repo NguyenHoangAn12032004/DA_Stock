@@ -1,32 +1,13 @@
 {
   "project_info": {
-    "project_number": "907097113298",
-    "project_id": "myapplication-25392609",
-    "storage_bucket": "myapplication-25392609.firebasestorage.app"
+    "project_number": "190600080314",
+    "project_id": "dastock-11239",
+    "storage_bucket": "dastock-11239.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:907097113298:android:8f1ef784d5424292e1230b",
-        "android_client_info": {
-          "package_name": "com.example.app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCavVNYIqAY7ZmsmXA9OOJX2JhQcOA5MeA"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:907097113298:android:e82e3e67c6e0b81de1230b",
+        "mobilesdk_app_id": "1:190600080314:android:db530140a998fcdecf0b83",
         "android_client_info": {
           "package_name": "com.example.stock_app"
         }
@@ -34,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCavVNYIqAY7ZmsmXA9OOJX2JhQcOA5MeA"
+          "current_key": "AIzaSyBoOyUPxwr0FrxM0NkEEE3VeSPITInUwII"
         }
       ],
       "services": {

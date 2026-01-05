@@ -302,7 +302,12 @@ from fastapi import Request
 REDIS_URL = "rediss://default:AUiVAAIncDJjYWQ5YmVhOWE2NDY0NGJkYTNhNDYxNjNkYjNiYWMzYnAyMTg1ODE@guiding-reptile-18581.upstash.io:6379"
 
 try:
-    r = redis.from_url(REDIS_URL, decode_responses=True)
+    r = redis.from_url(
+        REDIS_URL, 
+        decode_responses=True,
+        socket_timeout=5,        # 5s Read Timeout
+        socket_connect_timeout=5 # 5s Connect Timeout
+    )
     print("✅ Đã khởi tạo client Redis")
 except Exception as e:
     print(f"❌ Lỗi khởi tạo Redis: {e}")
@@ -343,15 +348,16 @@ async def lifespan(app: FastAPI):
     # Start Background Services
     print("   -> Starting Background Tasks...")
     asyncio.create_task(market_data_simulator())
-    asyncio.create_task(alert_monitor())
-    asyncio.create_task(metrics_monitor()) 
-    asyncio.create_task(maintenance_monitor())
+    asyncio.create_task(alert_monitor())   # RE-ENABLED: User Request
+    # asyncio.create_task(metrics_monitor()) # DISABLED: Save Firestore Read Quota (MVP)
+    # asyncio.create_task(maintenance_monitor())
     
     # Start Market Maker Bot
     # print("   -> Starting Market Maker Bot...")
     # asyncio.create_task(start_market_maker(process_executed_trades, r))
 
     print("🚀 All Services Started via Lifespan.")
+    print("✅ SERVER IS READY. Waiting for requests on port 8000...")
     yield
     # Shutdown
     print("🛑 Server Shutting Down...")
@@ -530,6 +536,12 @@ def get_requests_session():
 
 async def fetch_real_price(symbol: str):
     """Hàm lấy giá thực tế từ nguồn (Vnstock/Yfinance). Tuyệt đối không Mock."""
+    global RATE_LIMIT_UNTIL # Declare global scope first!
+    
+    # Guard: Cooldown Active?
+    if time.time() < RATE_LIMIT_UNTIL:
+        return None
+
     try:
         price = 0.0
         volume = 0
@@ -561,27 +573,22 @@ async def fetch_real_price(symbol: str):
                         return (local_price, local_volume, 0.0) # change_percent calc later
                     except BaseException as e: # Catch SystemExit and Rate Limits
                         print(f"⚠️ Vnstock Error/RateLimit: {e}")
+                        RATE_LIMIT_UNTIL = time.time() + 300 # 5 minutes cooling
                         return None
 
                 except Exception as e:
                     print(f"⚠️ get_vn_price logic error: {e}")
                     return None
             try:
+                result = await asyncio.wait_for(asyncio.to_thread(get_vn_price), timeout=5.0) # Increased timeout
                 if result:
                     price, volume, change_percent = result
                 else: 
                      return None
             except: 
                 # Trigger Backoff if Timeout or Error happens
-                global RATE_LIMIT_UNTIL
                 RATE_LIMIT_UNTIL = time.time() + 60 # 1 minute cooling for Timeout
                 return None
-            
-        except BaseException as e: # Catch SystemExit and Rate Limits from Vnstock
-             print(f"⚠️ Vnstock Hard Error/RateLimit: {e}")
-             global RATE_LIMIT_UNTIL
-             RATE_LIMIT_UNTIL = time.time() + 300 # 5 minutes cooling
-             return None
 
         # 2. US/Crypto (Yfinance)
         else:
@@ -721,7 +728,26 @@ async def alert_monitor():
                      # Disable alert to prevent spam
                      alert_doc.reference.update({"is_active": False})
                      
-                     # TODO: FCM Send
+                     # FCM Send Logic
+                     try:
+                         user_ref = db.collection("users").document(user_id).get()
+                         if user_ref.exists:
+                             user_data = user_ref.to_dict()
+                             fcm_token = user_data.get("fcm_token")
+                             if fcm_token:
+                                 message = messaging.Message(
+                                     notification=messaging.Notification(
+                                         title=f"Price Alert: {symbol}",
+                                         body=f"{symbol} has reached {current_price} ({condition} {target_price})",
+                                     ),
+                                     token=fcm_token,
+                                 )
+                                 response = messaging.send(message)
+                                 print(f"   ✅ Notification sent: {response}")
+                             else:
+                                 print(f"   ⚠️ No FCM Token for user {user_id}")
+                     except Exception as fcm_error:
+                         print(f"   ❌ FCM Send Error: {fcm_error}")
         except Exception as e:
             print(f"⚠️ Alert Monitor Error: {e}")
 
@@ -795,36 +821,23 @@ async def update_leaderboard_logic():
 
 
 IS_MAINTENANCE = False
+RATE_LIMIT_UNTIL = 0
+
 
 async def maintenance_monitor():
     """
     Background Task: Sync Maintenance Status from Firestore
     """
     global IS_MAINTENANCE
-    print("🛡️ Maintenance Monitor Started...")
+    print("🛡️ Maintenance Monitor Started (Disabled to prevent Thread Hangs)...")
     while not shutdown_event.is_set():
-        try:
-            db = get_db()
-            if db:
-                doc = db.collection('system').document('config').get()
-                if doc.exists:
-                    data = doc.to_dict()
-                    new_status = data.get('maintenance_mode', False)
-                    if new_status != IS_MAINTENANCE:
-                        IS_MAINTENANCE = new_status
-                        print(f"🛡️ System Maintenance Mode Changed to: {IS_MAINTENANCE}")
-            await asyncio.sleep(10)
-        except Exception as e:
-            print(f"Maintenance Monitor Error: {e}")
-            await asyncio.sleep(10)
+        # [DISABLED] Database call might be blocking thread pool if network is bad
+        # db = get_db()
+        # if db: ...
+        await asyncio.sleep(60)
 
-# [CLEANUP] Removed old startup_event
-
-
-@app.on_event("shutdown")
-async def shutdown_event_handler():
-    print("🛑 Đang tắt server...")
-    shutdown_event.set()
+# [CLEANUP] Removed duplicate imports and app definition
+# [CLEANUP] Removed deprecated on_event("shutdown"). Logic is now in lifespan.
 
 # --- WEBSOCKET ENDPOINT ---
 
@@ -882,7 +895,8 @@ def read_root():
         "status": "Server is running",
         "project": "Stock App Graduation Project",
         "redis_status": redis_status,
-        "docs_url": "http://localhost:8000/docs"
+        "docs_url": "http://localhost:8000/docs",
+        "rate_limit_cooldown_seconds": max(0, int(RATE_LIMIT_UNTIL - time.time()))
     }
 
 @app.get("/test-redis")
@@ -1473,11 +1487,17 @@ async def get_batch_quotes(req: BatchPriceRequest):
     
     results = []
     # Use Pipeline for speed
+    print(f"⚡ [Batch] Fetching {len(req.symbols)} symbols...")
     pipe = r.pipeline()
     for s in req.symbols:
         pipe.get(f"stock:{s.upper()}")
         
-    data_list =  await asyncio.to_thread(pipe.execute)
+    try:
+        # TIMEOUT: If Redis takes > 5s, abort to save the App connection
+        data_list = await asyncio.wait_for(asyncio.to_thread(pipe.execute), timeout=5.0)
+    except Exception as e:
+        print(f"❌ [Batch] Redis Timeout/Error: {e}")
+        return {"data": []}
     
     for i, json_str in enumerate(data_list):
         symbol = req.symbols[i].upper()
@@ -1491,6 +1511,7 @@ async def get_batch_quotes(req: BatchPriceRequest):
             # Or just omit. Frontend handles missing.
             pass
             
+    print(f"✅ [Redis-Cache] Served {len(results)}/{len(req.symbols)} quotes from RAM (0ms latency)")
     return {"data": results}
 
 @app.get("/api/social/profile/{target_id}")

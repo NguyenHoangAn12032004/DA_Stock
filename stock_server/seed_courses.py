@@ -1,126 +1,117 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
-import time
 import sys
 
 # FIX UNICODE ERROR ON WINDOWS
 sys.stdout.reconfigure(encoding='utf-8')
 
-# Initialize Firebase (Ensure serviceAccountKey.json is in the same folder)
-cred = credentials.Certificate("serviceAccountKey.json")
-try:
-    firebase_admin.get_app()
-except ValueError:
-    firebase_admin.initialize_app(cred)
+# --- CONFIG ---
+SERVICE_ACCOUNT_KEY = "serviceAccountKey.json"
 
-db = firestore.client()
+# --- DATA ---
+COURSES = [
+    {
+        "id": "beginner",
+        "title": "Stock Market Basics",
+        "level": "Beginner",
+        "description": "Learn the fundamental concepts of the stock market, how it works, and how to start investing.",
+        "order": 1,
+        "lessons": [
+            {
+                "id": "intro_stock",
+                "title": "What is a Stock?",
+                "duration": "5:30",
+                "video_url": "https://www.youtube.com/watch?v=p7HKvqRI_Bo",
+                "thumbnail": "https://img.youtube.com/vi/p7HKvqRI_Bo/0.jpg",
+                "order": 1
+            },
+            {
+                "id": "how_market_works",
+                "title": "How the Stock Market Works",
+                "duration": "8:15",
+                "video_url": "https://www.youtube.com/watch?v=ZCFkWDdmXG8",
+                "thumbnail": "https://img.youtube.com/vi/ZCFkWDdmXG8/0.jpg",
+                "order": 2
+            },
+            {
+                "id": "bull_bear",
+                "title": "Bull vs Bear Markets",
+                "duration": "4:20",
+                "video_url": "https://www.youtube.com/watch?v=1z6aUSX-bPw",
+                "thumbnail": "https://img.youtube.com/vi/1z6aUSX-bPw/0.jpg",
+                "order": 3
+            }
+        ]
+    },
+    {
+        "id": "intermediate",
+        "title": "Technical Analysis 101",
+        "level": "Intermediate",
+        "description": "Master reading charts, understanding trends, and using indicators like RSI and MACD.",
+        "order": 2,
+        "lessons": [
+            {
+                "id": "candlestick",
+                "title": "Reading Candlestick Charts",
+                "duration": "12:00",
+                "video_url": "https://www.youtube.com/watch?v=C327l6yq_wM",
+                "thumbnail": "https://img.youtube.com/vi/C327l6yq_wM/0.jpg",
+                "order": 1
+            },
+            {
+                "id": "support_resistance",
+                "title": "Support and Resistance",
+                "duration": "10:45",
+                "video_url": "https://www.youtube.com/watch?v=4pP9c8R6v8g",
+                "thumbnail": "https://img.youtube.com/vi/4pP9c8R6v8g/0.jpg",
+                "order": 2
+            }
+        ]
+    },
+    {
+        "id": "advanced",
+        "title": "Advanced Trading Strategies",
+        "level": "Advanced",
+        "description": "Learn about options, futures, and algorithmic trading strategies for experienced investors.",
+        "order": 3,
+        "lessons": [
+            {
+                "id": "options_intro",
+                "title": "Introduction to Options",
+                "duration": "15:20",
+                "video_url": "https://www.youtube.com/watch?v=7PM4rNDr4oI",
+                "thumbnail": "https://img.youtube.com/vi/7PM4rNDr4oI/0.jpg",
+                "order": 1
+            }
+        ]
+    }
+]
+
+# --- INIT FIREBASE ---
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(SERVICE_ACCOUNT_KEY)
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("✅ Firebase Initialized")
+except Exception as e:
+    print(f"❌ Firebase Init Error: {e}")
+    exit(1)
 
 def seed_courses():
-    print("🚀 Seeding Learning Center Data...")
+    print("🚀 Seeding Courses...")
+    batch = db.batch()
     
-    courses_ref = db.collection("courses")
-    
-    # 1. Beginner Module
-    beginner_data = {
-        "title": "Nhập Môn Chứng Khoán",
-        "level": "Beginner",
-        "order": 1,
-        "description": "Làm quen với các khái niệm cơ bản nhất của thị trường.",
-        "lessons": [
-            {
-                "id": "l1_1",
-                "title": "Chứng khoán là gì?",
-                "duration": "10:15",
-                "video_url": "https://www.youtube.com/watch?v=IPWv_fGkCf0", 
-                "thumbnail": "",
-                "order": 1
-            },
-            {
-                "id": "l1_2",
-                "title": "Cách đọc bảng giá điện tử",
-                "duration": "12:30",
-                "video_url": "https://www.youtube.com/watch?v=a1rStFvQWJk",
-                "thumbnail": "",
-                "order": 2
-            },
-            {
-                "id": "l1_3",
-                "title": "Cổ phiếu vs Trái phiếu",
-                "duration": "8:45",
-                "video_url": "https://www.youtube.com/watch?v=F3Q32CqXqaQ",
-                "thumbnail": "",
-                "order": 3
-            }
-        ]
-    }
-    
-    # 2. Intermediate Module
-    inter_data = {
-        "title": "Phân Tích Cơ Bản & Kỹ Thuật",
-        "level": "Intermediate",
-        "order": 2,
-        "description": "Trang bị công cụ để đánh giá và chọn lọc cổ phiếu.",
-        "lessons": [
-            {
-                "id": "l2_1",
-                "title": "Chỉ số P/E là gì?",
-                "duration": "9:20",
-                "video_url": "https://www.youtube.com/watch?v=6P3uT1lK2lM",
-                "thumbnail": "",
-                "order": 1
-            },
-            {
-                "id": "l2_2",
-                "title": "Mô hình Nến Nhật cơ bản",
-                "duration": "14:10",
-                "video_url": "https://www.youtube.com/watch?v=C35s4Q9d9T0",
-                "thumbnail": "",
-                "order": 2
-            },
-            {
-                "id": "l2_3",
-                "title": "Hỗ trợ & Kháng cự",
-                "duration": "11:50",
-                "video_url": "https://www.youtube.com/watch?v=JyJd6s7s5vI",
-                "thumbnail": "",
-                "order": 3
-            }
-        ]
-    }
-    
-    # 3. Advanced Module
-    adv_data = {
-        "title": "Chiến Lược Giao Dịch Nâng Cao",
-        "level": "Advanced",
-        "order": 3,
-        "description": "Quản trị rủi ro và các chiến thuật chuyên sâu.",
-        "lessons": [
-            {
-                "id": "l3_1",
-                "title": "Quản lý vốn & Rủi ro",
-                "duration": "18:00",
-                "video_url": "https://www.youtube.com/watch?v=1uWJ6y8Yy5k",
-                "thumbnail": "",
-                "order": 1
-            },
-            {
-                "id": "l3_2",
-                "title": "Tâm lý giao dịch (FOMO)",
-                "duration": "15:45",
-                "video_url": "https://www.youtube.com/watch?v=0k1vX-1j1jM",
-                "thumbnail": "",
-                "order": 2
-            }
-        ]
-    }
-    
-    # Upload to Firestore
-    # We use 'level' as ID for simplicity in fetching specific modules
-    courses_ref.document("beginner").set(beginner_data)
-    courses_ref.document("intermediate").set(inter_data)
-    courses_ref.document("advanced").set(adv_data)
-    
-    print("✅ Successfully seeded 3 Modules with Lessons.")
+    for course in COURSES:
+        doc_ref = db.collection("courses").document(course["id"])
+        batch.set(doc_ref, course)
+        print(f"   -> Prepared: {course['title']}")
+        
+    try:
+        batch.commit()
+        print("✅ All courses seeded successfully!")
+    except Exception as e:
+        print(f"❌ Error committing batch: {e}")
 
 if __name__ == "__main__":
     seed_courses()

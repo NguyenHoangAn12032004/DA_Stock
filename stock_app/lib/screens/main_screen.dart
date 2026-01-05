@@ -237,8 +237,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               MaterialPageRoute(builder: (context) => const HelpSupportScreen()),
             );
           }, isDark),
-          _buildDrawerItem(Icons.logout, l10n.logout, () {
-             ref.read(authControllerProvider.notifier).signOut();
+          _buildDrawerItem(Icons.logout, l10n.logout, () async {
+             Navigator.pop(context); // Close Drawer first
+             await ref.read(authControllerProvider.notifier).signOut();
           }, isDark),
         ],
       ),

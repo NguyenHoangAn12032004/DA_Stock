@@ -99,29 +99,56 @@ Stream<PortfolioEntity> portfolioStream(PortfolioStreamRef ref) {
 class PortfolioController extends _$PortfolioController {
   @override
   FutureOr<PortfolioState> build() async {
+    final user = ref.read(authRepositoryProvider).currentUser;
+    if (user == null) return PortfolioState(); // Should match authState logic
+
     // Watch Stream for Real-time Data
-    // .future creates a Future that completes with the latest value
-    // and rebuilds this provider whenever the stream emits.
-    final portfolio = await ref.watch(portfolioStreamProvider.future);
+    // [MODIFIED] Switch to Manual Fetch (Snapshot) to avoid Stream hanging issue on emulator
+    PortfolioEntity? portfolio;
+    try {
+      // Use READ on Repository to get a Future (One-shot)
+      // Note: Repository must support getPortfolio(userId) which creates a Future
+      final result = await ref.read(portfolioRepositoryProvider).getPortfolio(user.id)
+                              .timeout(const Duration(seconds: 15));
+
+      result.fold(
+        (failure) {
+           print("Portfolio fetch failed: ${failure.message}");
+           portfolio = const PortfolioEntity(balance: 0, holdings: []);
+           // Optional: throw exception to show error state, but let's allow partial loading (orders)
+           throw Exception(failure.message);
+        },
+        (data) {
+           portfolio = data;
+        }
+      );
+    } catch (e) {
+      print("Portfolio fetch timeout/error: $e");
+      portfolio = const PortfolioEntity(balance: 0, holdings: []); 
+      throw Exception("Connection timeout while fetching portfolio"); 
+    }
     
     // Also fetch orders (optional: can stream them too if we wanted, but user asked for "Money")
     // Let's keep orders as one-shot or pull-to-refresh for now to save complexity, 
     // unless OrderProvider has stream?
     // User wants "Realtime Money". PortfolioEntity has balance.
-    
-    final user = ref.read(authRepositoryProvider).currentUser;
-    if (user == null) return PortfolioState(); // Should match authState logic
 
     final ordersFuture = ref.read(orderRepositoryProvider).getOrders(user.id);
     // Warning: Mixing Stream (Portfolio) and Future (Orders) in build.
     // If Stream updates, we re-fetch Orders. This is actually GOOD (synced).
     
     List<OrderEntity> orders = [];
-    final ordersResult = await ordersFuture;
-    ordersResult.fold(
-      (l) => print('Orders fetch error: ${l.message}'),
-      (r) => orders = r,
-    );
+    // ADDED: Timeout for orders as well
+    try {
+      final ordersResult = await ordersFuture.timeout(const Duration(seconds: 5));
+      ordersResult.fold(
+        (l) => print('Orders fetch error: ${l.message}'),
+        (r) => orders = r,
+      );
+    } catch (e) {
+       print("Orders fetch timeout: $e");
+       // Don't fail entire screen just for orders, keep empty list
+    }
      // ... rest of logic uses 'portfolio' variable directly ...
     
     // orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));

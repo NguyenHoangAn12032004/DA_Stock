@@ -322,9 +322,14 @@ class ProfileScreen extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {
-                    ref.read(authControllerProvider.notifier).signOut();
+                onPressed: () async {
+                    // Show loading indicator or disable button?
+                    // For now, just await.
+                    await ref.read(authControllerProvider.notifier).signOut();
+                    
                     if (context.mounted) {
+                        // Pop all routes to ensure we return to Root (AuthWrapper)
+                        // This handles the case where Profile is pushed on top of Main.
                         Navigator.of(context).popUntil((route) => route.isFirst);
                     }
                 },
