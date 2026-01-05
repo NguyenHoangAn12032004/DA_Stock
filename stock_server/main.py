@@ -1204,6 +1204,59 @@ async def get_stock_history(symbol: str, start_date: str, end_date: str, resolut
     print(f"❌ [History] Failed to fetch data for {symbol}. Returning empty.")
     return {"symbol": symbol, "source": "None", "data": []}
 
+@app.get("/api/market/indices")
+async def get_market_indices():
+    """
+    Get Real Market Indices (VN-Index, S&P 500, BTC, etc.)
+    """
+    indices = []
+    
+    # 1. VN-Index (from vnstock or simple history fallback)
+    try:
+        # VN-Index symbol is usually 'VNINDEX' or similar in local APIs
+        # Quick hack: Fetch via yfinance for "^VNINDEX" might work or fallback to hardcoded if API unavailable
+        # Actually Vnstock provides market data.
+        
+        # Let's use YFinance for consistency and speed in MVP for Global Indices
+        # VNINDEX on Yahoo is '^VNINDEX' ? Checked: It's '^VNINDEX'
+        
+        tickers = {
+            "VN-Index": "^VNINDEX", 
+            "S&P 500": "^GSPC", 
+            "Bitcoin": "BTC-USD", 
+            "Gold": "GC=F",
+            "Crude Oil": "CL=F"
+        }
+        
+        for name, symbol in tickers.items():
+            try:
+                # Use YFinance
+                tick = yf.Ticker(symbol)
+                # Fast fetch of 'fast_info' or 'history' (1d)
+                # fast_info is better but sometimes missing. History is safer.
+                hist = tick.history(period="2d")
+                
+                if not hist.empty and len(hist) >= 1:
+                    current = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2] if len(hist) >= 2 else hist['Open'].iloc[-1]
+                    change = current - prev
+                    percent = (change / prev) * 100
+                    
+                    indices.append({
+                        "name": name,
+                        "price": current,
+                        "change": change,
+                        "percent": percent,
+                        "isPositive": change >= 0
+                    })
+            except Exception as e:
+                print(f"Index Fetch Error ({name}): {e}")
+                
+    except Exception as e:
+        print(f"Market Indices Error: {e}")
+        
+    return {"data": indices}
+
 @app.get("/api/company/overview")
 async def get_company_overview(symbol: str):
     symbol = symbol.upper()
@@ -1431,6 +1484,90 @@ def cancel_order(req: OrderCancelRequest):
     except Exception as e:
         print(f"Cancel Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stock/batch_quotes")
+async def get_batch_quotes(symbols: str):
+    """
+    Get Real Quotes for multiple stocks (comma separated).
+    """
+    symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    results = {}
+    
+    # Use existing fetch logic (YFinance/Vnstock)
+    # Optimization: Parallel fetch or bulk YFinance
+    # For MVP: Iterate or use Ticker(space separated)
+    
+    try:
+        # 1. Separate VN and US
+        vn_stocks = [s for s in symbol_list if len(s) == 3 and s.isalpha()]
+        us_stocks = [s for s in symbol_list if s not in vn_stocks]
+        
+        # 2. Fetch US/Crypto via YFinance (Bulk)
+        if us_stocks:
+            try:
+                tickers = " ".join(us_stocks)
+                # yf.download is heavy, Tickers is better
+                data = yf.Tickers(tickers)
+                # Ensure we get *some* data. fast_info is best for "Current Price"
+                for sym in us_stocks:
+                    try:
+                        info = data.tickers[sym].fast_info
+                        if info and info.last_price:
+                            # Calculate Change? fast_info doesn't have change easily.
+                            # Use history for 2 days
+                            hist = data.tickers[sym].history(period="2d")
+                            price = info.last_price
+                            change = 0.0
+                            if len(hist) >= 1:
+                                prev = hist['Close'].iloc[-2] if len(hist) >= 2 else hist['Open'].iloc[-1]
+                                change = ((price - prev) / prev) * 100
+                            
+                            results[sym] = {
+                                "symbol": sym,
+                                "price": price,
+                                "change_percent": change,
+                                "name": sym
+                            }
+                    except: pass
+            except Exception as e:
+                 print(f"US Batch Error: {e}")
+
+        # 3. Fetch VN via Vnstock (Iterative for now as bulk choice is limited in wrapper)
+        # Actually Vnstock might not be efficient for batch. 
+        # Hack: Use YFinance for VN stocks too using .VN suffix? 
+        # No, Vnstock is better. Let's precise.
+        for sym in vn_stocks:
+             try:
+                 # Re-use global cached fetch OR direct
+                 # Just single fetch for MVP to ensure accuracy
+                 # Note: This is slow. TODO: Optimize
+                 stock = Vnstock().stock(symbol=sym, source='VCI')
+                 df = stock.quote.history(start= (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d"), end=datetime.now().strftime("%Y-%m-%d"), interval='1D')
+                 
+                 if not df.empty:
+                     row = df.iloc[-1]
+                     # Vnstock df columns: time, open, high, low, close, volume...
+                     if 'close' in df.columns:
+                         price = float(row['close'])
+                         prev = float(df.iloc[-2]['close']) if len(df) >= 2 else price
+                         change = ((price - prev) / prev) * 100
+                         
+                         # Scale if needed (Vnstock sometimes returns 27.5 for 27500)
+                         if price < 500: price *= 1000
+                         
+                         results[sym] = {
+                             "symbol": sym,
+                             "price": price,
+                             "change_percent": change, 
+                             "name": sym
+                         }
+             except: pass
+             
+    except Exception as e:
+        print(f"Batch Quote Error: {e}")
+        
+    return {"data": results}
+
 
 def get_orderbook_data(symbol: str):
     """

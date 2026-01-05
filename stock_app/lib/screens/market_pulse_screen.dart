@@ -1,58 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import '../core/network/dio_client.dart';
 import '../theme/app_colors.dart';
 
-class MarketPulseScreen extends StatelessWidget {
+// --- Provider ---
+final marketIndicesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final dio = DioClient.instance.dio;
+  try {
+    final response = await dio.get('/api/market/indices');
+    return List<Map<String, dynamic>>.from(response.data['data']);
+  } catch (e) {
+    throw Exception('Failed to load indices');
+  }
+});
+
+class MarketPulseScreen extends ConsumerWidget {
   const MarketPulseScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Mock data for market indices
-    final List<Map<String, dynamic>> indices = [
-      {
-        'name': 'VN-Index',
-        'exchange': 'HOSE',
-        'price': 1240.50,
-        'change': 6.20,
-        'percent': 0.5,
-        'isPositive': true
-      },
-      {
-        'name': 'HNX-Index',
-        'exchange': 'HNX',
-        'price': 236.50,
-        'change': -1.20,
-        'percent': -0.5,
-        'isPositive': false
-      },
-      {
-        'name': 'UPCOM',
-        'exchange': 'UPCOM',
-        'price': 90.10,
-        'change': 0.10,
-        'percent': 0.1,
-        'isPositive': true
-      },
-      {
-        'name': 'VN30',
-        'exchange': 'HOSE',
-        'price': 1250.80,
-        'change': 5.50,
-        'percent': 0.44,
-        'isPositive': true
-      },
-      {
-        'name': 'HNX30',
-        'exchange': 'HNX',
-        'price': 480.20,
-        'change': -2.10,
-        'percent': -0.43,
-        'isPositive': false
-      },
-    ];
+    final indicesAsync = ref.watch(marketIndicesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -62,22 +33,46 @@ class MarketPulseScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.refresh(marketIndicesProvider),
+          )
+        ],
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: indices.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final item = indices[index];
-          return _buildMarketItem(theme, item);
+      body: indicesAsync.when(
+        data: (indices) {
+          if (indices.isEmpty) {
+            return const Center(child: Text("No data available"));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.refresh(marketIndicesProvider),
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: indices.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                return _buildMarketItem(theme, indices[index]);
+              },
+            ),
+          );
         },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );
   }
 
   Widget _buildMarketItem(ThemeData theme, Map<String, dynamic> item) {
-    final isPositive = item['isPositive'] as bool;
+    final isPositive = (item['isPositive'] ?? false) as bool;
     final isDark = theme.brightness == Brightness.dark;
+    
+    // Safety handling for nulls
+    final name = item['name'] ?? 'Index';
+    final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+    final change = (item['change'] as num?)?.toDouble() ?? 0.0;
+    final percent = (item['percent'] as num?)?.toDouble() ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -105,7 +100,7 @@ class MarketPulseScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['name'],
+                  name,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -113,7 +108,7 @@ class MarketPulseScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  item['exchange'],
+                  'Global/Local', // We can improve this if we have exchange data
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -128,7 +123,7 @@ class MarketPulseScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                item['price'].toStringAsFixed(2),
+                price.toStringAsFixed(2),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -143,7 +138,7 @@ class MarketPulseScreen extends StatelessWidget {
                     size: 20,
                   ),
                   Text(
-                    '${isPositive ? '+' : ''}${item['change']} (${item['percent']}%)',
+                    '${isPositive ? '+' : ''}${change.toStringAsFixed(2)} (${percent.toStringAsFixed(2)}%)',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
