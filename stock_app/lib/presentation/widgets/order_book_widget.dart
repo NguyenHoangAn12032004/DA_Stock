@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/order_book_entity.dart';
 import '../../presentation/providers/market_provider.dart';
 import '../../core/utils/currency_helper.dart';
+import '../../presentation/providers/settings_provider.dart'; // Add Settings Provider
 
 // --- Provider ---
 // We need a provider that fetches OrderBook for a specific Symbol
@@ -82,8 +83,9 @@ class OrderBookWidget extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
+            const SizedBox(height: 12),
             bookAsync.when(
-              data: (book) => _buildBook(context, book),
+              data: (book) => _buildBook(context, book, ref), // Pass ref
               error: (err, stack) => Center(child: Text('Lỗi tải sổ lệnh: $err')),
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
@@ -93,7 +95,7 @@ class OrderBookWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildBook(BuildContext context, OrderBookEntity book) {
+  Widget _buildBook(BuildContext context, OrderBookEntity book, WidgetRef ref) {
     if (book.bids.isEmpty && book.asks.isEmpty) {
       return const Center(child: Text("Sổ lệnh trống", style: TextStyle(color: Colors.grey)));
     }
@@ -112,7 +114,7 @@ class OrderBookWidget extends ConsumerWidget {
             children: [
               const Text("MUA", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
               const Divider(),
-              ...book.bids.take(5).map((e) => _buildRow(context, e, maxVol, true, symbol)),
+              ...book.bids.take(5).map((e) => _buildRow(context, e, maxVol, true, symbol, ref)),
               if (book.bids.isEmpty) const Text("-"),
             ],
           ),
@@ -124,7 +126,7 @@ class OrderBookWidget extends ConsumerWidget {
             children: [
               const Text("BÁN", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               const Divider(),
-              ...book.asks.take(5).map((e) => _buildRow(context, e, maxVol, false, symbol)),
+              ...book.asks.take(5).map((e) => _buildRow(context, e, maxVol, false, symbol, ref)),
               if (book.asks.isEmpty) const Text("-"),
             ],
           ),
@@ -133,7 +135,8 @@ class OrderBookWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildRow(BuildContext context, OrderBookEntry entry, int maxVol, bool isBid, String symbol) {
+  Widget _buildRow(BuildContext context, OrderBookEntry entry, int maxVol, bool isBid, String symbol, WidgetRef ref) {
+    final locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
     final percent = (entry.quantity / maxVol);
     
     return Container(
@@ -158,14 +161,14 @@ class OrderBookWidget extends ConsumerWidget {
               mainAxisAlignment: isBid ? MainAxisAlignment.end : MainAxisAlignment.start,
               children: [
                 if (!isBid) ...[
-                   Text(CurrencyHelper.format(entry.price, symbol: symbol, locale: const Locale('en', 'US')), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.red)),
+                   Text(CurrencyHelper.format(entry.price, symbol: symbol, locale: locale), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.red)),
                    const Spacer(),
                    Text("${entry.quantity}", style: const TextStyle(fontSize: 12)),
                 ],
                 if (isBid) ...[
                    Text("${entry.quantity}", style: const TextStyle(fontSize: 12)),
                    const Spacer(),
-                   Text(CurrencyHelper.format(entry.price, symbol: symbol, locale: const Locale('en', 'US')), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green)),
+                   Text(CurrencyHelper.format(entry.price, symbol: symbol, locale: locale), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green)),
                 ]
               ],
             ),

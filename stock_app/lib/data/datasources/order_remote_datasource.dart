@@ -39,7 +39,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             price: double.tryParse(data['price'].toString()) ?? 0.0,
           type: data['order_type'].toString().toLowerCase() == 'market' ? OrderType.market : OrderType.limit,
           status: OrderStatus.pending, // Default for now
-          timestamp: data['timestamp'],
+          timestamp: (double.tryParse(data['timestamp'].toString()) ?? 0).toInt(),
         );
       } else {
         throw ServerFailure('Failed to place order: ${response.statusCode}');
@@ -66,7 +66,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
               price: double.tryParse(data['price'].toString()) ?? 0.0,
             type: data['order_type'].toString().toLowerCase() == 'market' ? OrderType.market : OrderType.limit,
             status: data['status'] == 'matched' ? OrderStatus.matched : (data['status'] == 'cancelled' ? OrderStatus.canceled : OrderStatus.pending),
-            timestamp: int.tryParse(data['timestamp'].toString()) ?? 0,
+            timestamp: (double.tryParse(data['timestamp'].toString()) ?? 0).toInt(),
           );
         }).toList();
       } else {

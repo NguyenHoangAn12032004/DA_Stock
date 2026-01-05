@@ -197,8 +197,29 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     }
 
     // --- Validation Logic ---
+    // --- Validation Logic ---
     final quantity = int.tryParse(_quantityController.text);
-    final price = double.tryParse(_priceController.text) ?? _realtimePrice ?? (_stockData.isNotEmpty ? _stockData.last.close : 0.0);
+    
+    // Parse Price & Convert if USD
+    double finalPrice = 0.0;
+    
+    if (_selectedOrderType == 'Lệnh thị trường') {
+       finalPrice = _realtimePrice ?? (_stockData.isNotEmpty ? _stockData.last.close : 0.0);
+    } else {
+       double inputPrice = double.tryParse(_priceController.text) ?? 0.0;
+       
+       final locale = ref.read(languageControllerProvider).valueOrNull ?? const Locale('en');
+       final isVietnamese = locale.languageCode == 'vi';
+       
+       if (!isVietnamese) {
+          // Input is USD -> Convert to VND for API
+          finalPrice = inputPrice * CurrencyHelper.exchangeRate;
+       } else {
+          finalPrice = inputPrice;
+       }
+    }
+    
+    final price = finalPrice;
 
     if (quantity == null || quantity <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập số lượng hợp lệ')));
@@ -711,7 +732,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                   enabled: _selectedOrderType == 'Lệnh giới hạn',
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: _selectedOrderType == 'Lệnh thị trường' ? 'Giá thị trường' : 'Giá đặt',
+                    labelText: _selectedOrderType == 'Lệnh thị trường' 
+                        ? 'Giá thị trường' 
+                        : (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Giá đặt (VND)' : 'Price Limit (USD)'),
+                    suffixText: ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? '₫' : '\$',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     hintText: _selectedOrderType == 'Lệnh thị trường' 
@@ -801,9 +825,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 // Asks (Sells)
                 ...(_orderBook['asks'] as List).reversed.take(5).map((e) => 
                   _buildOrderBookItem(
-                    e['price'].toString(), 
+                    (e['price'] as num).toDouble(), 
                     e['quantity'].toString(), 
-                    false
+                    false,
+                    ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en')
                   )
                 ),
                 if ((_orderBook['asks'] as List).isEmpty)
@@ -814,9 +839,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                   child: Consumer( // Access language for this specific text
                      builder: (context, ref, _) {
                        final Locale locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
+                       final double currentPrice = _realtimePrice ?? (_stockData.isNotEmpty ? _stockData.last.close : 0.0);
                        return Text(
-                         _stockData.isNotEmpty 
-                           ? CurrencyHelper.format(_stockData.last.close, symbol: _currentSymbol, locale: locale)
+                         currentPrice > 0 
+                           ? CurrencyHelper.format(currentPrice, symbol: _currentSymbol, locale: locale)
                            : '---',
                          style: const TextStyle(
                            color: AppColors.success,
@@ -831,9 +857,10 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 // Bids (Buys)
                 ...(_orderBook['bids'] as List).take(5).map((e) => 
                   _buildOrderBookItem(
-                    e['price'].toString(), 
+                    (e['price'] as num).toDouble(), 
                     e['quantity'].toString(), 
-                    true
+                    true,
+                    ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en')
                   )
                 ),
                 if ((_orderBook['bids'] as List).isEmpty)
@@ -847,14 +874,14 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     );
   }
 
-  Widget _buildOrderBookItem(String price, String amount, bool isBuy) {
+  Widget _buildOrderBookItem(double price, String amount, bool isBuy, Locale locale) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            price,
+            CurrencyHelper.format(price, symbol: _currentSymbol, locale: locale),
             style: TextStyle(
               color: isBuy ? AppColors.success : AppColors.danger,
               fontSize: 12,

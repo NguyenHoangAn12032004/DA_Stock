@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:intl/intl.dart';
 
 class CurrencyHelper {
-  static double exchangeRate = 27000; // Default fallback
+  static double exchangeRate = 25450; // Synced with Backend default
 
   static void updateExchangeRate(double rate) {
     if (rate > 0) {
@@ -11,48 +11,38 @@ class CurrencyHelper {
     }
   }
 
+  // Helper to determine if symbol is foreign (Just for potential UI tweaks, not value conversion anymore)
   static bool isForeign(String symbol) {
     if (symbol.isEmpty) return false;
-    // Heuristic for MVP:
-    // Crypto pairs like BTC-USD
     if (symbol.contains('-')) return true; 
-    // US Stocks often > 3 chars (GOOG, AAPL, TSLA)
     if (symbol.length > 3) return true;
-    // Known short US stocks/Indices could be added here
     if (['F', 'T', 'C', 'CS'].contains(symbol)) return true;
-    
-    // Default assumption: 3 letters = VN Stock (HPG, VNM, VIC)
     return false; 
   }
 
-  static String format(double price, {required String symbol, required Locale locale}) {
+  /// Formats a price (assumed to be in VND Base) to the target locale.
+  static String format(double priceVnd, {required String symbol, required Locale locale}) {
     final isVietnamese = locale.languageCode == 'vi';
-    final foreign = isForeign(symbol);
 
-    double finalPrice = price;
-    String currencySymbol = isVietnamese ? '₫' : '\$';
-    String localeCode = isVietnamese ? 'vi_VN' : 'en_US';
-    int decimalDigits = 2; // Default
+    double finalPrice;
+    String currencySymbol;
+    String localeCode;
+    int decimalDigits;
 
     if (isVietnamese) {
-        // Mode: VIETNAMESE (Show everything in VND)
-        if (foreign) {
-            // USD -> VND
-            finalPrice = price * exchangeRate;
-        }
-        // VN Stock is already in VND
-        decimalDigits = 0; // VND usually no decimals
+        // Mode: VIETNAMESE -> Show VND
+        finalPrice = priceVnd;
+        currencySymbol = '₫';
+        localeCode = 'vi_VN';
+        decimalDigits = 0; 
     } else {
-        // Mode: ENGLISH (Show everything in USD)
-        if (!foreign) {
-            // VND -> USD
-            finalPrice = price / exchangeRate;
-            decimalDigits = 2;
-        }
-        // US Stock is already in USD
+        // Mode: ENGLISH -> Convert VND to USD
+        finalPrice = priceVnd / exchangeRate;
+        currencySymbol = '\$';
+        localeCode = 'en_US';
+        decimalDigits = 2;
     }
 
-    // NumberFormat handles the formatting (commas vs dots)
     return NumberFormat.currency(
       locale: localeCode, 
       symbol: currencySymbol,
@@ -60,17 +50,14 @@ class CurrencyHelper {
     ).format(finalPrice);
   }
   
-  // Helper to get raw converted value (for sorting or calcs)
-  static double convert(double price, {required String symbol, required Locale locale}) {
+  // Helper to get raw converted value (for sorting or calculations in target currency)
+  static double convert(double priceVnd, {required String symbol, required Locale locale}) {
     final isVietnamese = locale.languageCode == 'vi';
-    final foreign = isForeign(symbol);
     
-    if (isVietnamese && foreign) {
-      return price * exchangeRate;
-    } 
-    if (!isVietnamese && !foreign) {
-      return price / exchangeRate;
+    if (isVietnamese) {
+      return priceVnd;
+    } else {
+      return priceVnd / exchangeRate;
     }
-    return price;
   }
 }

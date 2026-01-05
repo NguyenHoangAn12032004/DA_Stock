@@ -211,10 +211,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               MaterialPageRoute(builder: (context) => const LearningScreen()),
             );
           }, isDark),
-          _buildDrawerItem(Icons.pie_chart_outline, l10n.myPortfolio, () {
-            Navigator.pop(context);
-            _onItemTapped(3); // Switch to Portfolio tab (Index 3)
-          }, isDark),
+
           _buildDrawerItem(Icons.settings_outlined, l10n.settings, () {
             Navigator.pop(context);
             Navigator.push(

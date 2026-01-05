@@ -33,6 +33,7 @@ class OrderRequest(BaseModel):
 
 # Global Config
 TRADING_FEE_RATE = 0.0015 # 0.15%
+USD_VND_RATE = 25450.0 # Fixed Rate for MVP
 shutdown_event = asyncio.Event()
 active_connections = 0
 
@@ -94,7 +95,7 @@ def process_executed_trades(trades: list):
                 print("✅ [SETTLEMENT] Batch Commit Success.")
                 
                 # 3. Publish to Social Feed
-                publish_social_feed(db, trade)
+                publish_social_feed(db, trade, r)
             except Exception as e:
                 print(f"⚠️ Settlement Error: {e}")
         
@@ -214,9 +215,9 @@ def hydrate_engine():
         print(f"❌ Hydration Error: {e}")
 
 # --- Social Trading Helpers ---
-def publish_social_feed(db, trade: dict):
+def publish_social_feed(db, trade: dict, r_client=None):
     """
-    Publishes a trade to the Social Feed and sends FCM if it's a 'Whale' trade.
+    Publishes a trade to the Social Feed (Firestore + Redis) and sends FCM if it's a 'Whale' trade.
     """
     try:
         # Validating input
@@ -235,9 +236,10 @@ def publish_social_feed(db, trade: dict):
         # 1. Feed for Buyer
         if buyer_id:
             b_snap = db.collection("users").document(buyer_id).get()
-            if b_snap.exists: buyer_name = b_snap.to_dict().get("name", "Nhà đầu tư")
+            if b_snap.exists: buyer_name = b_snap.to_dict().get("fullName", "Nhà đầu tư")
             
-            db.collection("feed").add({
+            # Global Feed Entry (Redis)
+            feed_item = {
                 "user_id": buyer_id,
                 "user_name": buyer_name,
                 "symbol": symbol,
@@ -246,14 +248,25 @@ def publish_social_feed(db, trade: dict):
                 "quantity": quantity,
                 "timestamp": timestamp,
                 "type": "trade"
-            })
+            }
+            
+            # Save to Redis for Global Feed API
+            if r_client:
+                 try:
+                     r_client.lpush("recent_trades", json.dumps(feed_item))
+                     r_client.ltrim("recent_trades", 0, 49) # Keep last 50
+                 except Exception as e:
+                     print(f"⚠️ Redis Feed Error: {e}")
+
+            # Save to Firestore (Personal Feed / History)
+            db.collection("feed").add(feed_item)
 
         # 2. Feed for Seller
-        if seller_id:
+        if seller_id and seller_id != "MARKET_MAKER_BOT":
             s_snap = db.collection("users").document(seller_id).get()
-            if s_snap.exists: seller_name = s_snap.to_dict().get("name", "Nhà đầu tư")
+            if s_snap.exists: seller_name = s_snap.to_dict().get("fullName", "Nhà đầu tư")
             
-            db.collection("feed").add({
+            feed_item_sell = {
                 "user_id": seller_id,
                 "user_name": seller_name,
                 "symbol": symbol,
@@ -262,7 +275,17 @@ def publish_social_feed(db, trade: dict):
                 "quantity": quantity,
                 "timestamp": timestamp,
                 "type": "trade"
-            })
+            }
+            
+            # Save to Redis for Global Feed API
+            if r_client:
+                 try:
+                     r_client.lpush("recent_trades", json.dumps(feed_item_sell))
+                     r_client.ltrim("recent_trades", 0, 49)
+                 except Exception as e:
+                     print(f"⚠️ Redis Feed Error (Sell): {e}")
+            
+            db.collection("feed").add(feed_item_sell)
 
         # 3. Whale Alert (> 100M VND)
         if total_val > 100_000_000:
@@ -602,7 +625,13 @@ async def fetch_real_price(symbol: str):
                     prev_close = info.previous_close
                     volume = int(info.last_volume) if info.last_volume else 0
                     change = ((p - prev_close) / prev_close) * 100 if prev_close else 0.0
-                    return p, volume, change
+                    
+                    # CONVERT TO VND (Unified Base Currency)
+                    # Assuming YF returns USD for these symbols.
+                    # TODO: Check currency in info if possible, but for MVP assuming USD.
+                    p_vnd = p * USD_VND_RATE
+                    
+                    return p_vnd, volume, change
                 except Exception as e:
                     # print(f"YF Price Error {symbol}: {e}")
                     return None
@@ -617,7 +646,7 @@ async def fetch_real_price(symbol: str):
 
         return {
             "symbol": symbol,
-            "price": round(price, 2),
+            "price": round(price, 0), # VND usually 0 decimals
             "change_percent": round(change_percent, 2),
             "volume": volume,
             "timestamp": datetime.now().isoformat()
@@ -1450,16 +1479,27 @@ async def get_leaderboard(limit: int = 10):
     for uid, score in top_users:
         # Get User Info (Name, Avatar)
         name = "Unknown"
+        avatar = ""
+        initial_capital = 100_000_000 # Default starter capital
+        
         if db:
             u_snap = db.collection("users").document(uid).get()
             if u_snap.exists:
-                name = u_snap.to_dict().get("fullName", "Trader")
+                u_data = u_snap.to_dict()
+                name = u_data.get("fullName", u_data.get("name", "Trader"))
+                # If we tracked initial deposit, we'd use it here. 
+                # For now, assuming everyone starts with 100M or 1B logic.
+                # Let's try to be smart: if equity is super low, maybe they blew up.
+                
+        # Calculate ROI
+        # ROI = (Current - Initial) / Initial
+        roi = ((score - initial_capital) / initial_capital) * 100
         
         result.append({
             "user_id": uid,
             "name": name,
             "equity": score,
-            "roi": ((score - 100000000) / 100000000) * 100 # Mock ROI based on 100m start
+            "roi": roi
         })
         
     return {"data": result}

@@ -197,12 +197,12 @@ class _SocialScreenState extends ConsumerState<SocialScreen> with SingleTickerPr
             itemBuilder: (context, index) {
               final trade = trades[index];
               // Format Time
-              final timestamp = trade['timestamp'] as int? ?? 0;
+              final timestamp = (trade['timestamp'] as num?)?.toInt() ?? 0;
               final dt = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
               final timeFormatted = DateFormat("HH:mm").format(dt);
               
-              final quantity = trade['quantity'] ?? 0;
-              final price = trade['price'] ?? 0;
+              final quantity = (trade['quantity'] as num?)?.toInt() ?? 0;
+              final price = (trade['price'] as num?)?.toInt() ?? 0;
               final actionText = "${trade['action'] == 'mua' ? 'đã mua' : 'đã bán'} ${NumberFormat.decimalPattern().format(quantity)} CP giá ${NumberFormat.decimalPattern().format(price)}";
 
               return _buildFeedItem(

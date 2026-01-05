@@ -9,7 +9,11 @@ def init_firebase():
     global db
     try:
         # Check for service account key
-        cred_path = "serviceAccountKey.json"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        cred_path = os.path.join(current_dir, "serviceAccountKey.json")
+        
+        if not os.path.exists(cred_path):
+             cred_path = "serviceAccountKey.json" # Try CWD
         
         if os.path.exists(cred_path):
             cred = credentials.Certificate(cred_path)

@@ -358,7 +358,7 @@ class _OrderBottomSheet extends ConsumerStatefulWidget {
   const _OrderBottomSheet({
     required this.symbol,
     required this.side,
-    required this.initialPrice,
+    required this.initialPrice, // Always VND Base
   });
 
   @override
@@ -374,7 +374,32 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
   void initState() {
     super.initState();
     _quantityController = TextEditingController(text: '100');
-    _priceController = TextEditingController(text: widget.initialPrice.toString());
+    _priceController = TextEditingController();
+  }
+
+  bool _isInit = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInit) {
+       final locale = ref.read(languageControllerProvider).valueOrNull ?? const Locale('en');
+       final isVietnamese = locale.languageCode == 'vi';
+       
+       // Calculate Display Price
+       double displayPrice = widget.initialPrice;
+       if (!isVietnamese) {
+           displayPrice = widget.initialPrice / CurrencyHelper.exchangeRate;
+       }
+       
+       _priceController.text = _formatPrice(displayPrice, isVietnamese);
+       _isInit = false;
+    }
+  }
+
+  String _formatPrice(double price, bool isVietnamese) {
+      if (isVietnamese) return price.toStringAsFixed(0);
+      return price.toStringAsFixed(2);
   }
 
   @override
@@ -419,18 +444,27 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
               ],
               selected: {_orderType},
               onSelectionChanged: (Set<OrderType> newSelection) {
-                setState(() {
-                  _orderType = newSelection.first;
-                  if (_orderType == OrderType.market) {
-                    _priceController.text = "Giá thị trường"; // Visual only
-                  } else {
-                    _priceController.text = widget.initialPrice.toString();
+                if (newSelection.isNotEmpty) {
+                    setState(() {
+                      _orderType = newSelection.first;
+                      if (_orderType == OrderType.market) {
+                        _priceController.text = "Market Price"; // Visual
+                      } else {
+                        // Reset to Initial Price (Converted)
+                        final locale = ref.read(languageControllerProvider).valueOrNull ?? const Locale('en');
+                        final isVietnamese = locale.languageCode == 'vi';
+                        double displayPrice = widget.initialPrice;
+                        if (!isVietnamese) displayPrice /= CurrencyHelper.exchangeRate;
+                        
+                        _priceController.text = _formatPrice(displayPrice, isVietnamese);
+                      }
+                    });
                   }
-                });
               },
               style: ButtonStyle(
                 backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
                   if (states.contains(MaterialState.selected)) {
+                     // Check if proper color usage
                      return AppColors.primary.withOpacity(0.2);
                   }
                   return Colors.transparent;
@@ -440,15 +474,24 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
             const SizedBox(height: 20),
 
             // Price Input
-            TextField(
-              controller: _priceController,
-              enabled: _orderType == OrderType.limit,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Giá đặt (VND)',
-                border: OutlineInputBorder(),
-                suffixText: 'VND',
-              ),
+            Consumer(
+              builder: (context, ref, _) {
+                 final locale = ref.watch(languageControllerProvider).valueOrNull ?? const Locale('en');
+                 final isVietnamese = locale.languageCode == 'vi';
+                 final currencyLabel = isVietnamese ? 'VND' : 'USD';
+                 final suffix = isVietnamese ? '₫' : '\$';
+                 
+                 return TextField(
+                  controller: _priceController,
+                  enabled: _orderType == OrderType.limit,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: isVietnamese ? 'Giá đặt (VND)' : 'Price Limit ($currencyLabel)',
+                    border: const OutlineInputBorder(),
+                    suffixText: suffix,
+                  ),
+                );
+              }
             ),
             const SizedBox(height: 12),
 
@@ -501,9 +544,21 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
     // Validate Price
     double px = 0.0;
     if (_orderType == OrderType.limit) {
-      px = double.tryParse(_priceController.text) ?? 0.0;
+      double inputPx = double.tryParse(_priceController.text) ?? 0.0;
+      
+      // CONVERT BACK TO VND BASE if needed
+      final locale = ref.read(languageControllerProvider).valueOrNull ?? const Locale('en');
+      final isVietnamese = locale.languageCode == 'vi';
+      
+      if (!isVietnamese) {
+          // Input is USD, Convert to VND
+          px = inputPx * CurrencyHelper.exchangeRate;
+      } else {
+          px = inputPx;
+      }
+      
     } else {
-      px = widget.initialPrice; // For Market order, send current estimation, backend will verify/execute at best match
+      px = widget.initialPrice; // Backend will recalculate for Market Order
     }
     
     if (qty <= 0) {

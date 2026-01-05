@@ -53,6 +53,10 @@ class NotificationService {
     _fcmToken = await _firebaseMessaging.getToken();
     print("🔥 FCM Token: $_fcmToken");
 
+    // Subscribe to Global Topics
+    await _firebaseMessaging.subscribeToTopic('market_news');
+    print("📡 Subscribed to 'market_news' topic");
+
     // 4. Handle Foreground Messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('📩 Got a message whilst in the foreground!');

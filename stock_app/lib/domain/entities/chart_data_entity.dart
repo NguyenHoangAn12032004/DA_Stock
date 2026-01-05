@@ -19,4 +19,22 @@ class ChartDataEntity extends Equatable {
 
   @override
   List<Object?> get props => [time, open, high, low, close, volume];
+
+  ChartDataEntity copyWith({
+    DateTime? time,
+    double? open,
+    double? high,
+    double? low,
+    double? close,
+    int? volume,
+  }) {
+    return ChartDataEntity(
+      time: time ?? this.time,
+      open: open ?? this.open,
+      high: high ?? this.high,
+      low: low ?? this.low,
+      close: close ?? this.close,
+      volume: volume ?? this.volume,
+    );
+  }
 }
