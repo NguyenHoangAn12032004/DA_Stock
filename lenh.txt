@@ -1,14 +1,17 @@
 //Backend
 
 cd stock_server
+Thiếu thư viện cài requirements.txt
 python -m pip install -r requirements.txt
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python main.py
 
 
 //Backend (DACN - AI Server - Port 8001)
 cd DACN
-python -m pip install -r requirements.txt
 python src/api/advice_server.py
+Thiếu thư viện cài requirements.txt
+python -m pip install -r requirements.txt
+
 
 
 //Fontend
@@ -16,7 +19,7 @@ cd stock_app
 flutter run
 
 //Reset Fontend 
-ctrl + r 
+CAPS + R 
 
 
 //
