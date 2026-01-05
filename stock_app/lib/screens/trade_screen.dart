@@ -70,7 +70,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
   // Order Form Controllers
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
-  String _selectedOrderType = 'Lệnh giới hạn'; // Default to Limit Order
+  String _selectedOrderType = 'limit'; // Default to Limit Order
 
   // Realtime Data
   double? _realtimePrice;
@@ -203,7 +203,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     // Parse Price & Convert if USD
     double finalPrice = 0.0;
     
-    if (_selectedOrderType == 'Lệnh thị trường') {
+    if (_selectedOrderType == 'market') {
        finalPrice = _realtimePrice ?? (_stockData.isNotEmpty ? _stockData.last.close : 0.0);
     } else {
        double inputPrice = double.tryParse(_priceController.text) ?? 0.0;
@@ -273,7 +273,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
         _isBuyMode ? 'buy' : 'sell',
         quantity,
         price,
-        orderType: _selectedOrderType == 'Lệnh thị trường' ? 'market' : 'limit',
+        orderType: _selectedOrderType,
       );
 
       // 2. Client-side Update REMOVED
@@ -315,7 +315,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
         
         // Clear inputs
         _quantityController.clear();
-        if (_selectedOrderType == 'Lệnh giới hạn') {
+        if (_selectedOrderType == 'limit') {
            _priceController.clear();
         }
       }
@@ -387,50 +387,55 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[600],
-                borderRadius: BorderRadius.circular(2),
-              ),
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final isVi = ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi';
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: _buildMenuItem(Icons.settings, 'Cài đặt')),
-                  Expanded(child: _buildMenuItem(Icons.swap_horiz, 'Chuyển tiền')),
-                  Expanded(child: _buildMenuItem(Icons.receipt_long, 'Giao dịch')),
-                  Expanded(child: _buildMenuItem(Icons.currency_exchange, 'Chuyển đổi')),
-                ],
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[600],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildMenuItem(Icons.settings, isVi ? 'Cài đặt' : 'Settings')),
+                      Expanded(child: _buildMenuItem(Icons.swap_horiz, isVi ? 'Chuyển tiền' : 'Transfer')),
+                      Expanded(child: _buildMenuItem(Icons.receipt_long, isVi ? 'Giao dịch' : 'History')),
+                      Expanded(child: _buildMenuItem(Icons.currency_exchange, isVi ? 'Chuyển đổi' : 'Convert')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildMenuItem(Icons.info_outline, isVi ? 'Thông tin' : 'Info')),
+                      Expanded(child: _buildMenuItem(Icons.percent, isVi ? 'Phí' : 'Fees')),
+                      Expanded(child: _buildMenuItem(Icons.star_border, isVi ? 'Bỏ yêu thích' : 'Unfavorite')),
+                      Expanded(child: _buildMenuItem(Icons.storefront, isVi ? 'Thị trường' : 'Market')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: _buildMenuItem(Icons.info_outline, 'Thông tin')),
-                  Expanded(child: _buildMenuItem(Icons.percent, 'Phí')),
-                  Expanded(child: _buildMenuItem(Icons.star_border, 'Bỏ yêu thích')),
-                  Expanded(child: _buildMenuItem(Icons.storefront, 'Thị trường')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
+          );
+        }
       ),
     );
   }
@@ -673,7 +678,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            'MUA',
+                            (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'MUA' : 'BUY'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: _isBuyMode ? Colors.white : Colors.grey,
@@ -699,7 +704,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            'BÁN',
+                            (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'BÁN' : 'SELL'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: !_isBuyMode ? Colors.white : Colors.grey,
@@ -719,8 +724,14 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                     filled: true,
                     fillColor: isDark ? Colors.grey[900] : Colors.grey[100],
                   ),
-                  items: ['Lệnh thị trường', 'Lệnh giới hạn', 'Lệnh dừng'].map((e) {
-                    return DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)));
+                  items: ['market', 'limit', 'stop'].map((e) {
+                    final isVi = ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi';
+                    String label = e;
+                    if (e == 'market') label = isVi ? 'Lệnh thị trường' : 'Market Order';
+                    else if (e == 'limit') label = isVi ? 'Lệnh giới hạn' : 'Limit Order';
+                    else if (e == 'stop') label = isVi ? 'Lệnh dừng' : 'Stop Order';
+                    
+                    return DropdownMenuItem(value: e, child: Text(label, style: const TextStyle(fontSize: 12)));
                   }).toList(),
                   onChanged: (value) {
                     if (value != null) setState(() => _selectedOrderType = value);
@@ -729,16 +740,16 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _priceController,
-                  enabled: _selectedOrderType == 'Lệnh giới hạn',
+                  enabled: _selectedOrderType == 'limit',
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: _selectedOrderType == 'Lệnh thị trường' 
-                        ? 'Giá thị trường' 
+                    labelText: _selectedOrderType == 'market' 
+                        ? (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Giá thị trường' : 'Market Price')
                         : (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Giá đặt (VND)' : 'Price Limit (USD)'),
                     suffixText: ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? '₫' : '\$',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    hintText: _selectedOrderType == 'Lệnh thị trường' 
+                    hintText: _selectedOrderType == 'market' 
                       ? (_stockData.isNotEmpty 
                           // Watch language for hint text too? Hard to do inside build method without ref.watch if not rebuilt. 
                           // Since we're in ConsumerState, we can use ref.watch(language...).
@@ -747,14 +758,14 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                           // Let's grab language at top of build.
                           ? 'Market Price' // Simplified as dynamic text is complex here.
                           : 'Loading...')
-                      : 'Nhập giá',
+                      : (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Nhập giá' : 'Enter Price'),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _quantityController,
                   decoration: InputDecoration(
-                    labelText: 'Số lượng',
+                    labelText: (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Số lượng' : 'Quantity'),
                     suffixText: _currentSymbol,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -772,13 +783,15 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                       if (isBuy) {
                          final balance = portfolio?.portfolio?.balance ?? 0;
                          // Format balance
-                         text = "Saldo: ${NumberFormat.compact().format(balance)} VND";
+                         final label = (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi') ? 'Saldo' : 'Balance';
+                         text = "$label: ${NumberFormat.compact().format(balance)} VND";
                       } else {
                          final holding = portfolio?.portfolio?.holdings.firstWhere(
                            (h) => h.symbol == _currentSymbol, 
                            orElse: () => const HoldingEntity(symbol: '', quantity: 0, averagePrice: 0)
                          );
-                         text = "Đang có: ${holding?.quantity ?? 0} CP";
+                         final label = (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi') ? 'Đang có' : 'Available';
+                         text = "$label: ${holding?.quantity ?? 0} CP";
                       }
                       
                       return Text(text, style: TextStyle(fontSize: 10, color: isBuy ? AppColors.success : Colors.orange));
@@ -799,7 +812,7 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
                       elevation: 2, // Slight elevation
                     ),
                     child: Text(
-                      '${_isBuyMode ? "MUA" : "BÁN"} $_currentSymbol', 
+                      '${_isBuyMode ? (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? "MUA" : "BUY") : (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? "BÁN" : "SELL")} $_currentSymbol', 
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
                     ),
                   ),
@@ -814,11 +827,11 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
             child: Container(
             child: Column(
               children: [
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Giá', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    Text('SL', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text((ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Giá' : 'Price'), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text((ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'SL' : 'Qty'), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
                 const SizedBox(height: 8),

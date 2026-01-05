@@ -98,7 +98,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
               });
             },
             decoration: InputDecoration(
-              hintText: 'Tìm kiếm mã cổ phiếu...',
+              hintText: (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi') 
+                  ? 'Tìm kiếm mã cổ phiếu...' 
+                  : 'Search stock symbol...',
               hintStyle: TextStyle(
                 color: isDark ? const Color(0xFF9CABBA) : const Color(0xFF637588),
                 fontSize: 14,
@@ -122,14 +124,21 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
           labelColor: AppColors.primary,
           unselectedLabelColor: isDark ? const Color(0xFF9CABBA) : const Color(0xFF637588),
           indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Tất cả'),
-            Tab(text: 'Việt Nam'),
-            Tab(text: 'Quốc tế'),
-            Tab(text: 'Crypto'),
-          ],
+          tabs: (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi')
+             ? const [
+                Tab(text: 'Tất cả'),
+                Tab(text: 'Việt Nam'),
+                Tab(text: 'Quốc tế'),
+                Tab(text: 'Crypto'),
+               ]
+             : const [
+                Tab(text: 'All'),
+                Tab(text: 'Vietnam'),
+                Tab(text: 'Global'),
+                Tab(text: 'Crypto'),
+               ],
+          ),
         ),
-      ),
       body: TabBarView(
         controller: _tabController,
         children: [
@@ -153,7 +162,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> with SingleTick
     if (stocks.isEmpty) {
       return Center(
         child: Text(
-          'Không tìm thấy kết quả',
+          (locale.languageCode == 'vi') ? 'Không tìm thấy kết quả' : 'No results found',
           style: TextStyle(
             color: isDark ? const Color(0xFF9CABBA) : const Color(0xFF637588),
           ),

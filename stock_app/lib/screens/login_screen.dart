@@ -44,42 +44,112 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _showForgotPasswordDialog() {
     final emailController = TextEditingController();
     final l10n = AppLocalizations.of(context)!;
+    final formKey = GlobalKey<FormState>();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text(l10n.forgotPassword),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   Text(
+                    'Enter your registered email address. We will send you a link to reset your password.',
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodySmall?.color),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: emailController,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      final emailRegex = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
+                      if (!emailRegex.hasMatch(value)) {
+                        return 'Invalid email format';
+                      }
+                      return null;
+                    },
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  if (isSubmitting) ...[
+                    const SizedBox(height: 20),
+                    const CircularProgressIndicator(),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (formKey.currentState!.validate()) {
+                          setState(() => isSubmitting = true);
+                          final email = emailController.text.trim();
+                          
+                          // Use UseCase directly to avoid polluting AuthState
+                          final result = await ref.read(passwordResetUseCaseProvider)(email);
+                          
+                          if (context.mounted) {
+                            setState(() => isSubmitting = false);
+                            Navigator.pop(context); // Close Dialog
+                            
+                            result.fold(
+                              (failure) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${failure.message}'),
+                                    backgroundColor: AppColors.danger,
+                                  ),
+                                );
+                              },
+                              (_) {
+                                _showSuccessDialog(email);
+                              },
+                            );
+                          }
+                        }
+                      },
+                child: const Text('Send Reset Link'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showSuccessDialog(String email) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.forgotPassword),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        title: const Row(
           children: [
-            const Text('Enter your email to receive a password reset link.'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: l10n.email,
-                border: const OutlineInputBorder(),
-              ),
-            ),
+            Icon(Icons.check_circle, color: AppColors.success),
+            SizedBox(width: 8),
+            Text("Email Sent"),
           ],
         ),
+        content: Text("A password reset link has been sent to $email.\nPlease check your inbox (and spam folder)."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final email = emailController.text.trim();
-              if (email.isNotEmpty) {
-                Navigator.pop(context); // Close dialog first
-                ref.read(authControllerProvider.notifier).resetPassword(email);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Sending reset email...')),
-                );
-              }
-            },
-            child: const Text('Send'),
-          ),
+            child: const Text("OK"),
+          )
         ],
       ),
     );

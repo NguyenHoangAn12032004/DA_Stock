@@ -192,6 +192,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                       color: isPositive ? AppColors.success : AppColors.danger,
                     ),
                   ),
+
                   Row(
                     children: [
                       Text(
@@ -209,8 +210,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                    // Format Volume as well? Usually compact is fine (1M, 200K).
-                   // Maybe just localize NumberFormat if really needed, but 'K'/'M' is universal enough.
-                  Text('Vol: ${NumberFormat.compact().format(stock.volume)}', style: const TextStyle(fontSize: 12)),
+                   Text('${locale.languageCode == 'vi' ? 'KL' : 'Vol'}: ${NumberFormat.compact().format(stock.volume)}', style: const TextStyle(fontSize: 12)),
                 ],
               ),
             ],
@@ -235,7 +235,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('Buy', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text((ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'MUA' : 'BUY'), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ),
           const SizedBox(width: 16),
@@ -247,7 +247,7 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('Sell', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text((ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'BÁN' : 'SELL'), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ),
         ],
@@ -425,22 +425,22 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
           controller: scrollController,
           shrinkWrap: true,
           children: [
-            Text(
-              '${widget.side == OrderSide.buy ? "MUA" : "BÁN"} ${widget.symbol}',
-              style: TextStyle(
-                fontSize: 20, 
-                fontWeight: FontWeight.bold,
-                color: widget.side == OrderSide.buy ? Colors.green : Colors.red,
+              Text(
+                '${widget.side == OrderSide.buy ? (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? "MUA" : "BUY") : (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? "BÁN" : "SELL")} ${widget.symbol}',
+                style: TextStyle(
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold,
+                  color: widget.side == OrderSide.buy ? Colors.green : Colors.red,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
             const SizedBox(height: 20),
             
             // Order Type Toggle
             SegmentedButton<OrderType>(
-              segments: const [
-                ButtonSegment(value: OrderType.limit, label: Text('Lệnh Giới Hạn (LO)')),
-                ButtonSegment(value: OrderType.market, label: Text('Lệnh Thị Trường (MP)')),
+              segments: [
+                ButtonSegment(value: OrderType.limit, label: Text(ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Lệnh Giới Hạn (LO)' : 'Limit Order (LO)')),
+                ButtonSegment(value: OrderType.market, label: Text(ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Lệnh Thị Trường (MP)' : 'Market Order (MP)')),
               ],
               selected: {_orderType},
               onSelectionChanged: (Set<OrderType> newSelection) {
@@ -500,10 +500,10 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
               controller: _quantityController,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Khối lượng',
-                helperText: 'Bội số của 100',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Khối lượng' : 'Quantity'),
+                helperText: (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'Bội số của 100' : 'Multiple of 100'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -525,7 +525,9 @@ class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
                     child: orderState.isLoading 
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Text(
-                          widget.side == OrderSide.buy ? 'ĐẶT MUA' : 'ĐẶT BÁN', 
+                          widget.side == OrderSide.buy 
+                            ? (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'ĐẶT MUA' : 'PLACE BUY') 
+                            : (ref.watch(languageControllerProvider).valueOrNull?.languageCode == 'vi' ? 'ĐẶT BÁN' : 'PLACE SELL'), 
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)
                         ),
                   );

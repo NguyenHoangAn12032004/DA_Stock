@@ -34,8 +34,33 @@ class OrderRequest(BaseModel):
 # Global Config
 TRADING_FEE_RATE = 0.0015 # 0.15%
 USD_VND_RATE = 25450.0 # Fixed Rate for MVP
+IS_MAINTENANCE = False # Global Maintenance Flag
+
 shutdown_event = asyncio.Event()
 active_connections = 0
+
+# --- MAINTENANCE LISTENER ---
+def on_config_snapshot(doc_snapshot, changes, read_time):
+    global IS_MAINTENANCE
+    for doc in doc_snapshot:
+        data = doc.to_dict()
+        IS_MAINTENANCE = data.get("maintenance_mode", False)
+        print(f"🔄 [SYSTEM] Maintenance Mode Updated: {IS_MAINTENANCE}")
+
+def start_config_listener():
+    try:
+        db = get_db()
+        if db:
+            # Create a watch on 'system/config'
+            doc_ref = db.collection("system").document("config")
+            # Ensure doc exists
+            if not doc_ref.get().exists:
+                doc_ref.set({"maintenance_mode": False})
+                
+            doc_ref.on_snapshot(on_config_snapshot)
+            print("✅ [SYSTEM] Maintenance Config Listener Started")
+    except Exception as e:
+        print(f"⚠️ Failed to start config listener: {e}")
 
 # --- HELPER: TRADE SETTLEMENT ---
 def process_executed_trades(trades: list):
@@ -373,7 +398,9 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(market_data_simulator())
     asyncio.create_task(alert_monitor())   # RE-ENABLED: User Request
     # asyncio.create_task(metrics_monitor()) # DISABLED: Save Firestore Read Quota (MVP)
-    # asyncio.create_task(maintenance_monitor())
+    
+    # Enable Maintenance Sync
+    start_config_listener()
     
     # Start Market Maker Bot
     # print("   -> Starting Market Maker Bot...")
@@ -1228,7 +1255,95 @@ class OrderRequest(BaseModel):
     price: float
     order_type: str = "limit" # "limit" or "market"
 
-# [CLEANUP] Removed duplicate place_order
+# Restored place_order
+@app.post("/api/orders")
+async def place_order(order: OrderRequest):
+    """
+    Đặt lệnh mới (Limit/Market).
+    """
+    # 0. Check Maintenance Mode
+    if IS_MAINTENANCE:
+        raise HTTPException(status_code=503, detail="System is under maintenance. Trading is disabled.")
+
+    if not r:
+        raise HTTPException(status_code=503, detail="Redis unavailable")
+        
+    try:
+        # 1. Validation
+        if order.quantity <= 0:
+            raise HTTPException(status_code=400, detail="Quantity must be > 0")
+        if order.price < 0: # Market order might represent price as 0?
+            raise HTTPException(status_code=400, detail="Price must be positive")
+            
+        # 2. Check Balance/Stocks (Firestore)
+        db = get_db()
+        if not db:
+             raise HTTPException(status_code=503, detail="Database unavailable")
+             
+        user_ref = db.collection("users").document(order.user_id)
+        user_snap = user_ref.get()
+        if not user_snap.exists:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_data = user_snap.to_dict()
+        
+        # BUY: Check Balance
+        if order.side.lower() == "buy":
+            total_cost = order.price * order.quantity
+            fee = total_cost * TRADING_FEE_RATE
+            required = total_cost + fee
+            
+            balance = user_data.get("balance", 0)
+            if balance < required:
+                raise HTTPException(status_code=400, detail=f"Insufficient balance. Need {required:,.0f} VND")
+                
+            # Hold Money
+            user_ref.update({"balance": firestore.Increment(-required)})
+            
+        # SELL: Check Holdings
+        elif order.side.lower() == "sell":
+            holding_ref = user_ref.collection("holdings").document(order.symbol)
+            holding_snap = holding_ref.get()
+            if not holding_snap.exists:
+                 raise HTTPException(status_code=400, detail=f"Not holding {order.symbol}")
+            
+            holding_data = holding_snap.to_dict()
+            current_qty = holding_data.get("quantity", 0)
+            if current_qty < order.quantity:
+                raise HTTPException(status_code=400, detail=f"Insufficient stocks. Have {current_qty}")
+                
+            # Hold Stocks
+            holding_ref.update({"quantity": firestore.Increment(-order.quantity)})
+            
+        # 3. Save to Redis (Matching Engine)
+        order_id = str(uuid.uuid4())
+        
+        # Redis Hash: order:{id}
+        order_dict = order.dict()
+        order_dict["status"] = "pending"
+        order_dict["filled"] = 0
+        order_dict["timestamp"] = time.time()
+        order_dict["id"] = order_id
+        
+        pipeline = r.pipeline()
+        pipeline.hmset(f"order:{order_id}", order_dict)
+        pipeline.sadd("pending_orders", order_id)
+        pipeline.rpush(f"user_orders:{order.user_id}", order_id)
+        pipeline.execute()
+        
+        # 4. Trigger Matching Engine (Async Background?)
+        # For MVP, we can try to match immediately or let a background worker do it.
+        # But we also have Main Loop running `engine.process_orders()`? 
+        # Yes, line 1780+ in main loop handles matching.
+        
+        return {"status": "success", "order_id": order_id, "message": "Order placed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Place Order Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/api/orders/{user_id}")
@@ -1658,8 +1773,24 @@ async def get_admin_stats(admin_id: str = Depends(verify_admin)):
         # print(f"Online Count Error: {e}")
         pass
 
+    # Calculate Total Users (Registered)
+    total_users_count = 0
+    try:
+        # Optimization: Use count() aggregation query which is cheaper/faster than fetching all
+        agg_query = db.collection("users").count()
+        results = agg_query.get()
+        total_users_count = results[0][0].value
+    except Exception as e:
+        print(f"Total Users Count Error: {e}")
+        # Fallback to len() if aggregation fails (e.g. older SDK)
+        try:
+             total_users_count = len(list(db.collection("users").stream()))
+        except:
+             pass
+
     response_data = {
-        "total_users": online_users, # User requested this be "Users Online"
+        "total_users": total_users_count, 
+        "online_users": online_users, # Keep online users as separate field if needed
         "active_orders": 0,
         "total_assets": 0.0,
         "user_growth": [0] * 7,
