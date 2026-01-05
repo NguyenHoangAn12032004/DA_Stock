@@ -381,7 +381,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
               icon: Icon(Icons.more_vert, color: textColor),
               onSelected: (value) => _handleUserAction(value, uid, data),
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'add_money', child: Text("💰 Add 100M Demo")),
+                // const PopupMenuItem(value: 'add_money', child: Text("💰 Add 100M Demo")),
                 PopupMenuItem(
                   value: 'ban', 
                   child: Text(isBanned ? "✅ Unban User" : "🚫 Ban User", style: TextStyle(color: isBanned ? Colors.green : Colors.red))
