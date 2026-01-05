@@ -44,6 +44,23 @@ class _ActiveOrdersWidgetState extends ConsumerState<ActiveOrdersWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to OrderController state for feedback
+    ref.listen<AsyncValue<void>>(orderControllerProvider, (previous, next) {
+      if (next is AsyncLoading) {
+         // Optional: Show global loading overlay? Or just trust the button loading state if we implemented it.
+         // For now, simple SnackBar might be annoying if loading is fast.
+      } else if (next is AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi hủy lệnh: ${next.error}'), backgroundColor: Colors.red),
+        );
+      } else if (next is AsyncData && !next.isLoading) {
+         // Success
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã gửi yêu cầu hủy lệnh'), backgroundColor: Colors.green),
+        );
+      }
+    });
+
     final user = ref.watch(authControllerProvider).valueOrNull;
     if (user == null) return const SizedBox();
 
@@ -69,7 +86,7 @@ class _ActiveOrdersWidgetState extends ConsumerState<ActiveOrdersWidget> {
                     "Lệnh đang chờ",
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
                   ),
-                   // Optional: Manual Refresh Button
+                   // Manual Refresh Button
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
                     onPressed: () {

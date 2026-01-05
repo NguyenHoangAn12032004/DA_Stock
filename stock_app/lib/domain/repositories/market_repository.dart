@@ -2,6 +2,7 @@ import '../../core/utils/either.dart';
 import '../../core/errors/failures.dart';
 import '../entities/stock_entity.dart';
 import '../entities/chart_data_entity.dart';
+import '../entities/order_book_entity.dart';
 
 abstract class MarketRepository {
   /// Fetches real-time market data for a list of symbols.
@@ -18,4 +19,7 @@ abstract class MarketRepository {
   
   /// Fetches historical data for charts
   Future<Either<Failure, List<ChartDataEntity>>> getStockHistory(String symbol, String startDate, String endDate, {String resolution = '1D'});
+
+  /// Fetches Order Book (Depth)
+  Future<Either<Failure, OrderBookEntity>> getOrderBook(String symbol);
 }

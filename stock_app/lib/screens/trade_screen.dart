@@ -97,10 +97,19 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
     _socketService.stream?.listen((message) {
       final data = _socketService.parseData(message);
       if (data != null && data['symbol'] == _currentSymbol) {
-        setState(() {
-          _realtimePrice = (data['price'] as num?)?.toDouble() ?? _realtimePrice;
-          _realtimeChange = (data['change_percent'] as num?)?.toDouble() ?? _realtimeChange;
-        });
+        // 1. Handle Order Book Update
+        if (data['type'] == 'ORDER_BOOK') {
+          setState(() {
+            _orderBook = Map<String, dynamic>.from(data['data']);
+          });
+        }
+        // 2. Handle Price Update (Legacy/Standard)
+        else {
+          setState(() {
+            _realtimePrice = (data['price'] as num?)?.toDouble() ?? _realtimePrice;
+            _realtimeChange = (data['change_percent'] as num?)?.toDouble() ?? _realtimeChange;
+          });
+        }
       }
     });
   }
@@ -255,10 +264,25 @@ class _TradeScreenState extends ConsumerState<TradeScreen> {
       if (mounted) Navigator.pop(context);
 
       if (mounted) {
+        final orderId = result['data'] != null ? result['data']['order_id'] : result['order_id'];
+        // Check for immediate matches
+        // Note: New backend returns 'trades_count' inside 'data', old returns at root.
+        final tradesCount = result['data'] != null 
+             ? (result['data']['trades_count'] ?? 0) 
+             : (result['trades_count'] ?? 0);
+
+        String msg = 'Đặt lệnh thành công! ID: $orderId';
+        if (tradesCount > 0) {
+           msg = 'Khớp lệnh thành công ($tradesCount giao dịch)!';
+        } else {
+           msg = 'Lệnh đã vào sổ lệnh (Chờ khớp giá)';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Đặt lệnh thành công! ID: ${result['data']['order_id']}'),
+            content: Text(msg),
             backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 3),
           ),
         );
         

@@ -18,4 +18,9 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Stream<PortfolioEntity> getPortfolioStream(String userId) {
+    return _remoteDataSource.getPortfolioStream(userId);
+  }
 }

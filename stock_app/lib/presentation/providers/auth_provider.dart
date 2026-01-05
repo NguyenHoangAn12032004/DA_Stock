@@ -60,8 +60,9 @@ class AuthController extends _$AuthController {
     final user = await ref.watch(authStateChangesProvider.future);
     
     if (user != null) {
-      // Background sync of FCM token to ensure it's up to date
-      _syncFCMToken(user.id);
+       // Do NOT sync FCM here as it causes infinite loop with Firestore Stream!
+       // Sync is handled in signIn/signUp.
+       // For better sync, use a separate listener or onTokenRefresh.
     }
     return user;
   }

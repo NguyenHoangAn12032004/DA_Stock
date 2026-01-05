@@ -3,6 +3,7 @@ import '../../core/utils/either.dart';
 import '../../core/errors/failures.dart';
 import '../../domain/entities/stock_entity.dart';
 import '../../domain/entities/chart_data_entity.dart';
+import '../../domain/entities/order_book_entity.dart';
 import '../../domain/repositories/market_repository.dart';
 import '../datasources/market_local_datasource.dart';
 import '../datasources/market_remote_datasource.dart';
@@ -62,6 +63,16 @@ class MarketRepositoryImpl implements MarketRepository {
       // For history, we usually don't cache deeply in MVP yet, or we can cache by key "history_{symbol}_{res}".
       // For now, direct remote call.
       final result = await _remoteDataSource.getStockHistory(symbol, startDate, endDate, resolution: resolution);
+      return Right(result);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, OrderBookEntity>> getOrderBook(String symbol) async {
+    try {
+      final result = await _remoteDataSource.getOrderBook(symbol);
       return Right(result);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

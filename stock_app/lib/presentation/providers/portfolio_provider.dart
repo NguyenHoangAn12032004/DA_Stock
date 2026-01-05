@@ -82,45 +82,65 @@ class PortfolioState {
   }
 }
 
+@riverpod
+Stream<PortfolioEntity> portfolioStream(PortfolioStreamRef ref) {
+  // Use authStateChanges to ensure we have a user
+  // Using 'read' for currentUser might be null on init, but stream keeps it alive?
+  // Use authStateChanges provider to be reactive to login/logout
+  return ref.watch(authStateChangesProvider.stream).asyncExpand((user) {
+      if (user == null) return Stream.value(const PortfolioEntity(balance: 0, holdings: []));
+      return ref.watch(portfolioRepositoryProvider).getPortfolioStream(user.id);
+  });
+}
+
 // --- Controller ---
 
 @riverpod
 class PortfolioController extends _$PortfolioController {
   @override
   FutureOr<PortfolioState> build() async {
-    final user = await ref.watch(authRepositoryProvider).currentUser;
-    if (user == null) {
-      return PortfolioState();
-    }
+    // Watch Stream for Real-time Data
+    // .future creates a Future that completes with the latest value
+    // and rebuilds this provider whenever the stream emits.
+    final portfolio = await ref.watch(portfolioStreamProvider.future);
+    
+    // Also fetch orders (optional: can stream them too if we wanted, but user asked for "Money")
+    // Let's keep orders as one-shot or pull-to-refresh for now to save complexity, 
+    // unless OrderProvider has stream?
+    // User wants "Realtime Money". PortfolioEntity has balance.
+    
+    final user = ref.read(authRepositoryProvider).currentUser;
+    if (user == null) return PortfolioState(); // Should match authState logic
 
-    // 1. Fetch Portfolio and Orders
-    final portfolioFuture = ref.read(getPortfolioUseCaseProvider).call(user.id);
     final ordersFuture = ref.read(orderRepositoryProvider).getOrders(user.id);
-
-    final results = await Future.wait([portfolioFuture, ordersFuture]);
-
-    final portfolioResult = results[0] as dynamic; // Either<Failure, PortfolioEntity>
-    final ordersResult = results[1] as dynamic;    // Either<Failure, List<OrderEntity>>
-
-    PortfolioEntity? portfolio;
+    // Warning: Mixing Stream (Portfolio) and Future (Orders) in build.
+    // If Stream updates, we re-fetch Orders. This is actually GOOD (synced).
+    
     List<OrderEntity> orders = [];
-
-    portfolioResult.fold(
-      (l) => print('Portfolio fetch error: ${l.message}'),
-      (r) => portfolio = r,
-    );
-
+    final ordersResult = await ordersFuture;
     ordersResult.fold(
       (l) => print('Orders fetch error: ${l.message}'),
-      (r) => orders = r as List<OrderEntity>,
+      (r) => orders = r,
     );
+     // ... rest of logic uses 'portfolio' variable directly ...
     
+    // orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    // ...
+    // Note: Variable 'portfolio' is now 'PortfolioEntity', not 'PortfolioEntity?'.
+    // Logic below expects 'portfolio' to be possibly null or handled.
+     
+     if (user == null) { // Double check
+       return PortfolioState();
+     }
+     
+     // Continue with existing logic...
+
+
     // Sort orders descending
     orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    if (portfolio == null) {
-       return PortfolioState(orders: orders);
-    }
+    // Valid portfolio is guaranteed by stream default value
+    // 2. Fetch Real-time Quotes for Holdings
 
     // 2. Fetch Real-time Quotes for Holdings
     final symbols = portfolio!.holdings.map((h) => h.symbol).toList();
@@ -129,7 +149,9 @@ class PortfolioController extends _$PortfolioController {
 
     if (symbols.isNotEmpty) {
        try {
-         final quotesResult = await ref.read(marketRepositoryProvider).getRealtimeQuotes(symbols);
+         final quotesResult = await ref.read(marketRepositoryProvider).getRealtimeQuotes(symbols)
+             .timeout(const Duration(seconds: 3));
+             
          quotesResult.fold(
            (l) => print("Quotes error: $l"),
            (r) {
@@ -139,7 +161,8 @@ class PortfolioController extends _$PortfolioController {
            }
          );
        } catch (e) {
-         print("Error fetching portfolio quotes: $e");
+         print("Error fetching portfolio quotes (Timeout/Fail): $e");
+         // Proceed with empty prices (or old rawPrices if we persisted state, but build is fresh)
        }
     }
 

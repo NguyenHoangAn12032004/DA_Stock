@@ -19,13 +19,16 @@ class StockChartWidget extends ConsumerWidget {
 
     return chartState.when(
       data: (data) {
-        if (data.isEmpty) {
-          return const Center(child: Text('No chart data available'));
+        // Filter out bad data (zero values)
+        final validData = data.where((e) => e.close > 0 && e.high > 0).toList();
+        
+        if (validData.isEmpty) {
+          return const Center(child: Text('No valid chart data available'));
         }
         return Padding(
           padding: const EdgeInsets.only(top: 8.0, right: 0),
           child: InteractiveChartWidget(
-            datas: data,
+            datas: validData,
             isLine: false, // Default to Candle
           ),
         );

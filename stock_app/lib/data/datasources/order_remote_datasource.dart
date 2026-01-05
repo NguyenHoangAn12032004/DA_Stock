@@ -34,10 +34,10 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           id: data['order_id'],
           userId: data['user_id'],
           symbol: data['symbol'],
-          side: data['side'] == 'buy' ? OrderSide.buy : OrderSide.sell,
+          side: data['side'].toString().toLowerCase() == 'buy' ? OrderSide.buy : OrderSide.sell,
           quantity: data['quantity'],
             price: double.tryParse(data['price'].toString()) ?? 0.0,
-          type: data['order_type'] == 'market' ? OrderType.market : OrderType.limit,
+          type: data['order_type'].toString().toLowerCase() == 'market' ? OrderType.market : OrderType.limit,
           status: OrderStatus.pending, // Default for now
           timestamp: data['timestamp'],
         );
@@ -61,10 +61,10 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             id: data['order_id'],
             userId: data['user_id'],
             symbol: data['symbol'],
-            side: data['side'] == 'buy' ? OrderSide.buy : OrderSide.sell,
+            side: data['side'].toString().toLowerCase() == 'buy' ? OrderSide.buy : OrderSide.sell,
             quantity: int.tryParse(data['quantity'].toString()) ?? 0,
               price: double.tryParse(data['price'].toString()) ?? 0.0,
-            type: data['order_type'] == 'market' ? OrderType.market : OrderType.limit,
+            type: data['order_type'].toString().toLowerCase() == 'market' ? OrderType.market : OrderType.limit,
             status: data['status'] == 'matched' ? OrderStatus.matched : (data['status'] == 'cancelled' ? OrderStatus.canceled : OrderStatus.pending),
             timestamp: int.tryParse(data['timestamp'].toString()) ?? 0,
           );

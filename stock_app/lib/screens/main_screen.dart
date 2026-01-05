@@ -134,7 +134,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildDrawer(bool isDark, AppLocalizations l10n) {
     final userState = ref.watch(authControllerProvider);
     final user = userState.asData?.value;
-    final displayName = user?.displayName ?? 'InvestMate User';
+    final displayName = (user?.displayName != null && user!.displayName!.isNotEmpty) 
+        ? user.displayName! 
+        : (user?.email?.split('@')[0] ?? 'User');
     final email = user?.email ?? 'user@example.com';
 
     return Drawer(

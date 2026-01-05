@@ -395,28 +395,34 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
   }
 
   Future<void> _handleUserAction(String action, String uid, Map<String, dynamic> data) async {
-    final db = FirebaseFirestore.instance;
+    final dio = DioClient.instance.dio;
     try {
       if (action == 'add_money') {
-         await db.collection('users').doc(uid).update({
-           'balance': FieldValue.increment(100000000),
-           'total_assets': FieldValue.increment(100000000)
-         });
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Added 100M VND to user wallet! 💰")));
+         final response = await dio.post('/api/admin/add_balance', data: {'user_id': uid, 'amount': 100000000});
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.data['message'] ?? "Added 100M VND")));
       } else if (action == 'ban') {
-         final isBanned = data['status'] == 'banned';
-         await db.collection('users').doc(uid).update({
-           'status': isBanned ? 'active' : 'banned'
-         });
-         // Refresh list locally
-         final idx = _users.indexWhere((d) => d.id == uid);
-         if (idx != -1) {
-             // In real app, re-fetch or robust state update. For now just standard refresh logic will hit on scroll or manual refresh.
-             _fetchUsers(); // Simple re-fetch
-         }
+         final response = await dio.post('/api/admin/ban', data: {'user_id': uid});
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.data['message'])));
+         _fetchUsers(); // Refresh UI list
+      } else if (action == 'reset_pass') {
+         final response = await dio.post('/api/admin/reset_password', data: {'user_id': uid});
+         final link = response.data['link'];
+         // Show Link in Dialog to Copy
+         showDialog(
+           context: context, 
+           builder: (ctx) => AlertDialog(
+             title: const Text("Password Reset Link"),
+             content: SelectableText(link),
+             actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close"))]
+           )
+         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      String msg = e.toString();
+      if (e is DioException) {
+        msg = e.response?.data['detail'] ?? e.message;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $msg"), backgroundColor: Colors.red));
     }
   }
 

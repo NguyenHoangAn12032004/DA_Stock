@@ -64,8 +64,26 @@ final getPortfolioUseCaseProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef GetPortfolioUseCaseRef = AutoDisposeProviderRef<GetPortfolioUseCase>;
+String _$portfolioStreamHash() => r'89689868bd28d54200f864e72d2e0b94fad18762';
+
+/// See also [portfolioStream].
+@ProviderFor(portfolioStream)
+final portfolioStreamProvider =
+    AutoDisposeStreamProvider<PortfolioEntity>.internal(
+      portfolioStream,
+      name: r'portfolioStreamProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$portfolioStreamHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef PortfolioStreamRef = AutoDisposeStreamProviderRef<PortfolioEntity>;
 String _$portfolioControllerHash() =>
-    r'fe75d401b5f0fbe0fb5536d9aeb7254d2c6311be';
+    r'7033ef78f879a1dc6db16725c8daa41049d0b3e5';
 
 /// See also [PortfolioController].
 @ProviderFor(PortfolioController)

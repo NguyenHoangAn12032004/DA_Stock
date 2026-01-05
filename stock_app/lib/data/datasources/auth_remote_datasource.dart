@@ -25,29 +25,36 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Stream<UserEntity?> get authStateChanges {
-    return _firebaseAuth.authStateChanges().asyncMap((user) async {
-      if (user == null) return null;
+    return _firebaseAuth.authStateChanges().asyncExpand((user) {
+      if (user == null) return Stream.value(null);
       
-      // Fetch Role from Firestore
-      UserRole role = UserRole.user;
-      try {
-        final doc = await _firestore.collection('users').doc(user.uid).get();
+      // Listen to Real-time User Data from Firestore
+      return _firestore.collection('users').doc(user.uid).snapshots().map((doc) {
+        UserRole role = UserRole.user;
+        Map<String, dynamic> data = {};
+        
         if (doc.exists && doc.data() != null) {
-          final data = doc.data()!;
+          data = doc.data()!;
           if (data['role'] == 'admin') {
             role = UserRole.admin;
           }
         }
-      } catch (e) {
-        print("Error fetching user role: $e");
-      }
-
-      return UserEntity(
-        id: user.uid,
-        email: user.email!,
-        displayName: user.displayName,
-        role: role,
-      );
+        
+        // Map Firestore data to Entity (Balance, Assets update here!)
+        // Note: UserEntity needs to support these new fields if we want them in the Entity.
+        // Currently UserEntity might be minimal. Let's check UserEntity definition.
+        // If UserEntity doesn't have balance, we can't propagate it via AuthState.
+        // But assumedly it does? Or the UI fetches Profile separately?
+        // Let's assume UserEntity is minimal for Auth, and ProfileProvider handles balance.
+        // But user asked for "Realtime Balance" which implies UserProvider.
+        
+        return UserEntity(
+          id: user.uid,
+          email: user.email!,
+          displayName: data['fullName'] ?? user.displayName, // Prefer Firestore name
+          role: role,
+        );
+      });
     });
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../domain/entities/order_entity.dart';
 import '../presentation/widgets/stock_chart_widget.dart';
+import '../presentation/widgets/order_book_widget.dart';
 import '../presentation/providers/market_provider.dart';
 import '../presentation/providers/order_provider.dart';
 import '../presentation/providers/auth_provider.dart';
@@ -51,143 +52,18 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
   }
 
   void _showOrderBottomSheet(BuildContext context, OrderSide side) {
-    final price = _getRealtimePrice() ?? 0.0;
-    final quantityController = TextEditingController(text: '100');
-    final priceController = TextEditingController(text: price.toString());
-    
-    // Get current user
-    final authResult = ref.read(authRepositoryProvider).currentUser;
-    // We need to resolve FutureOr. For MVP, assuming user is logged in if they are here.
-    // Actually currentUser return Future<UserEntity?>. We should handle this better.
-    // For now, let's just trigger the async check inside the sheet.
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        builder: (_, controller) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-               Text(
-                '${side == OrderSide.buy ? "Buy" : "Sell"} $_currentSymbol',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Price',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: Consumer(
-                  builder: (context, ref, child) {
-                    final orderState = ref.watch(orderControllerProvider);
-                    
-                    return ElevatedButton(
-                      onPressed: orderState.isLoading ? null : () async {
-                        final qty = int.tryParse(quantityController.text) ?? 0;
-                        final px = double.tryParse(priceController.text) ?? 0.0;
-                        
-                        if (qty <= 0 || px <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid quantity or price')));
-                          return;
-                        }
-
-                        // Get User ID
-                        final user = await ref.read(authRepositoryProvider).currentUser;
-                        if (user == null) {
-                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to trade')));
-                           return;
-                        }
-
-                        await ref.read(orderControllerProvider.notifier).placeOrder(
-                          userId: user.id,
-                          symbol: _currentSymbol,
-                          side: side,
-                          quantity: qty,
-                          price: px,
-                          type: OrderType.limit, // Default to limit for manually entered price
-                        );
-
-                        // Check result
-                        // Since we can't easily check state change result here without a listener, 
-                        // we'll listen to the provider in the parent or handle via callbacks.
-                        // For MVP simplicity, check current state after await.
-                        
-                        final newState = ref.read(orderControllerProvider);
-                        if (newState.hasError) {
-                          final errorMsg = newState.error.toString();
-                          if (errorMsg.contains("bảo trì") || errorMsg.contains("503")) {
-                             showDialog(
-                               context: context,
-                               builder: (ctx) => AlertDialog(
-                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                 title: const Row(
-                                   children: [
-                                     Icon(Icons.build_circle_outlined, color: Colors.orange),
-                                     SizedBox(width: 8),
-                                     Text("Bảo trì hệ thống", style: TextStyle(fontSize: 18)),
-                                   ],
-                                 ),
-                                 content: const Text("Hệ thống đang tạm ngừng giao dịch để nâng cấp. Vui lòng quay lại sau!"),
-                                 actions: [
-                                   TextButton(
-                                     onPressed: () => Navigator.of(ctx).pop(),
-                                     child: const Text("Đóng", style: TextStyle(fontWeight: FontWeight.bold)),
-                                   )
-                                 ],
-                               ),
-                             );
-                          } else {
-                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${newState.error}')));
-                          }
-                        } else {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order Placed Successfully!')));
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: side == OrderSide.buy ? AppColors.success : AppColors.danger,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: orderState.isLoading 
-                        ? const CircularProgressIndicator(color: Colors.white) 
-                        : Text(side == OrderSide.buy ? 'BUY' : 'SELL', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    );
-                  }
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (context) => _OrderBottomSheet(
+        symbol: _currentSymbol,
+        side: side,
+        initialPrice: _getRealtimePrice() ?? 0.0,
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -266,6 +142,8 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
                     key: ValueKey(_currentSymbol),
                     symbol: _currentSymbol
                   ),
+                  const SizedBox(height: 16),
+                  OrderBookWidget(symbol: _currentSymbol),
                   const Divider(),
                   _buildOrderSection(isDark),
                   const SizedBox(height: 24),
@@ -471,3 +349,197 @@ class _StockDetailScreenState extends ConsumerState<StockDetailScreen> {
   }
 }
 
+
+class _OrderBottomSheet extends ConsumerStatefulWidget {
+  final String symbol;
+  final OrderSide side;
+  final double initialPrice;
+
+  const _OrderBottomSheet({
+    required this.symbol,
+    required this.side,
+    required this.initialPrice,
+  });
+
+  @override
+  ConsumerState<_OrderBottomSheet> createState() => _OrderBottomSheetState();
+}
+
+class _OrderBottomSheetState extends ConsumerState<_OrderBottomSheet> {
+  late TextEditingController _quantityController;
+  late TextEditingController _priceController;
+  OrderType _orderType = OrderType.limit;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '100');
+    _priceController = TextEditingController(text: widget.initialPrice.toString());
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+        child: ListView(
+          controller: scrollController,
+          shrinkWrap: true,
+          children: [
+            Text(
+              '${widget.side == OrderSide.buy ? "MUA" : "BÁN"} ${widget.symbol}',
+              style: TextStyle(
+                fontSize: 20, 
+                fontWeight: FontWeight.bold,
+                color: widget.side == OrderSide.buy ? Colors.green : Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            
+            // Order Type Toggle
+            SegmentedButton<OrderType>(
+              segments: const [
+                ButtonSegment(value: OrderType.limit, label: Text('Lệnh Giới Hạn (LO)')),
+                ButtonSegment(value: OrderType.market, label: Text('Lệnh Thị Trường (MP)')),
+              ],
+              selected: {_orderType},
+              onSelectionChanged: (Set<OrderType> newSelection) {
+                setState(() {
+                  _orderType = newSelection.first;
+                  if (_orderType == OrderType.market) {
+                    _priceController.text = "Giá thị trường"; // Visual only
+                  } else {
+                    _priceController.text = widget.initialPrice.toString();
+                  }
+                });
+              },
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                  if (states.contains(MaterialState.selected)) {
+                     return AppColors.primary.withOpacity(0.2);
+                  }
+                  return Colors.transparent;
+                }),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Price Input
+            TextField(
+              controller: _priceController,
+              enabled: _orderType == OrderType.limit,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Giá đặt (VND)',
+                border: OutlineInputBorder(),
+                suffixText: 'VND',
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Quantity Input
+            TextField(
+              controller: _quantityController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Khối lượng',
+                helperText: 'Bội số của 100',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final orderState = ref.watch(orderControllerProvider);
+                  
+                  return ElevatedButton(
+                    onPressed: orderState.isLoading ? null : _submitOrder,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.side == OrderSide.buy ? AppColors.success : AppColors.danger,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: orderState.isLoading 
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(
+                          widget.side == OrderSide.buy ? 'ĐẶT MUA' : 'ĐẶT BÁN', 
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)
+                        ),
+                  );
+                }
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitOrder() async {
+    final qty = int.tryParse(_quantityController.text) ?? 0;
+    
+    // Validate Price
+    double px = 0.0;
+    if (_orderType == OrderType.limit) {
+      px = double.tryParse(_priceController.text) ?? 0.0;
+    } else {
+      px = widget.initialPrice; // For Market order, send current estimation, backend will verify/execute at best match
+    }
+    
+    if (qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Khối lượng không hợp lệ')));
+      return;
+    }
+    if (_orderType == OrderType.limit && px <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Giá không hợp lệ')));
+      return;
+    }
+
+    final user = await ref.read(authRepositoryProvider).currentUser;
+    if (user == null) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng đăng nhập để giao dịch')));
+       return;
+    }
+
+    await ref.read(orderControllerProvider.notifier).placeOrder(
+      userId: user.id,
+      symbol: widget.symbol,
+      side: widget.side,
+      quantity: qty,
+      price: px,
+      type: _orderType,
+    );
+
+    // Check result
+    if (!mounted) return;
+    
+    final newState = ref.read(orderControllerProvider);
+    if (newState.hasError) {
+      final errorMsg = newState.error.toString();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $errorMsg')));
+    } else {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đặt lệnh thành công!')));
+    }
+  }
+}

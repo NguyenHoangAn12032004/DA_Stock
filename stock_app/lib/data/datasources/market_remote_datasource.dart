@@ -9,6 +9,7 @@ import '../../core/errors/failures.dart';
 import '../../core/network/dio_client.dart';
 import '../../domain/entities/stock_entity.dart';
 import '../../domain/entities/chart_data_entity.dart';
+import '../../domain/entities/order_book_entity.dart';
 
 
 abstract class MarketRemoteDataSource {
@@ -17,6 +18,7 @@ abstract class MarketRemoteDataSource {
   Future<void> connectStream();
   Future<void> disconnectStream();
   Future<List<ChartDataEntity>> getStockHistory(String symbol, String startDate, String endDate, {String resolution = '1D'});
+  Future<OrderBookEntity> getOrderBook(String symbol);
 }
 
 class MarketRemoteDataSourceImpl implements MarketRemoteDataSource {
@@ -28,6 +30,36 @@ class MarketRemoteDataSourceImpl implements MarketRemoteDataSource {
   final Map<String, StockEntity> _latestStocks = {};
 
   MarketRemoteDataSourceImpl(this._dioClient);
+
+  @override
+  Future<OrderBookEntity> getOrderBook(String symbol) async {
+    try {
+      final response = await _dioClient.dio.get('/api/orderbook/$symbol');
+      
+      if (response.statusCode == 200) {
+        final data = response.data;
+        // API returns { "bids": [...], "asks": [...] }
+        
+        final bids = (data['bids'] as List)
+            .map((e) => OrderBookEntry.fromJson(e))
+            .toList();
+            
+        final asks = (data['asks'] as List)
+            .map((e) => OrderBookEntry.fromJson(e))
+            .toList();
+            
+        return OrderBookEntity(
+          symbol: symbol,
+          bids: bids,
+          asks: asks,
+        );
+      } else {
+        throw ServerFailure('Failed to fetch order book');
+      }
+    } catch (e) {
+      throw ServerFailure(e.toString());
+    }
+  }
 
   @override
   Future<List<StockEntity>> getInitialQuotes(List<String> symbols) async {
@@ -65,8 +97,8 @@ class MarketRemoteDataSourceImpl implements MarketRemoteDataSource {
             double changePercent = 0.0;
             if (data.length >= 2) {
               final prevRecord = data[data.length - 2];
-              final double close = (lastRecord['close'] as num).toDouble();
-              final double prevClose = (prevRecord['close'] as num).toDouble();
+              final double close = (lastRecord['close'] as num?)?.toDouble() ?? 0.0;
+              final double prevClose = (prevRecord['close'] as num?)?.toDouble() ?? 0.0;
               
               if (prevClose > 0) {
                 changePercent = ((close - prevClose) / prevClose) * 100;
@@ -77,9 +109,9 @@ class MarketRemoteDataSourceImpl implements MarketRemoteDataSource {
             // backend 'data' items: { "time": "...", "open": ..., "close": ... }
             final entity = StockEntity(
               symbol: symbol,
-              price: (lastRecord['close'] as num).toDouble(),
+              price: (lastRecord['close'] as num?)?.toDouble() ?? 0.0,
               changePercent: changePercent,
-              volume: (lastRecord['volume'] as num).toInt(),
+              volume: (lastRecord['volume'] as num?)?.toInt() ?? 0,
             );
             results.add(entity);
             _latestStocks[symbol] = entity;
@@ -185,11 +217,11 @@ class MarketRemoteDataSourceImpl implements MarketRemoteDataSource {
           // Flatten mapping
           return ChartDataEntity(
             time: DateTime.parse(json['time']), // Ensure format is parseable or use DateFormat
-            open: (json['open'] as num).toDouble(),
-            high: (json['high'] as num).toDouble(),
-            low: (json['low'] as num).toDouble(),
-            close: (json['close'] as num).toDouble(),
-            volume: (json['volume'] as num).toInt(),
+            open: (json['open'] as num?)?.toDouble() ?? 0.0,
+            high: (json['high'] as num?)?.toDouble() ?? 0.0,
+            low: (json['low'] as num?)?.toDouble() ?? 0.0,
+            close: (json['close'] as num?)?.toDouble() ?? 0.0,
+            volume: (json['volume'] as num?)?.toInt() ?? 0,
           );
         }).toList();
       } else {
