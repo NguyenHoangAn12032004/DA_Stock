@@ -72,55 +72,32 @@ class MarketRemoteDataSourceImpl implements MarketRemoteDataSource {
     // We can also try to infer from previous implementation.
     // Let's iterate.
     
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    // Start date = 3 days ago to be safe (weekends)
-    final startDate = DateTime.now().subtract(const Duration(days: 5)).toIso8601String().split('T')[0];
+    // Use efficient Batch API (Redis Cache)
+    try {
+      final response = await _dioClient.dio.post(
+        '/api/stock/batch_quotes',
+        data: {'symbols': symbols},
+      );
 
-    // Note: Concurrency might be limited by server. Run in sequence or small batches.
-    for (var symbol in symbols) {
-      try {
-        final response = await _dioClient.dio.get(
-          '/api/history',
-          queryParameters: {
-            'symbol': symbol,
-            'start_date': startDate,
-            'end_date': today,
-            'resolution': '1D'
-          },
-        );
-        
-        if (response.statusCode == 200) {
-          final data = response.data['data'] as List;
-          if (data.isNotEmpty) {
-            final lastRecord = data.last;
-            
-            double changePercent = 0.0;
-            if (data.length >= 2) {
-              final prevRecord = data[data.length - 2];
-              final double close = (lastRecord['close'] as num?)?.toDouble() ?? 0.0;
-              final double prevClose = (prevRecord['close'] as num?)?.toDouble() ?? 0.0;
-              
-              if (prevClose > 0) {
-                changePercent = ((close - prevClose) / prevClose) * 100;
-              }
-            }
-            
-            // Map to StockEntity
-            // backend 'data' items: { "time": "...", "open": ..., "close": ... }
-            final entity = StockEntity(
-              symbol: symbol,
-              price: (lastRecord['close'] as num?)?.toDouble() ?? 0.0,
-              changePercent: changePercent,
-              volume: (lastRecord['volume'] as num?)?.toInt() ?? 0,
-            );
-            results.add(entity);
-            _latestStocks[symbol] = entity;
-          }
+      if (response.statusCode == 200) {
+        final data = response.data['data'] as List;
+        for (var item in data) {
+           // Item: { "symbol": "HPG", "price": 28000, "change_percent": 1.2, "volume": ... }
+           if (item['symbol'] != null) {
+              final entity = StockEntity(
+                 symbol: item['symbol'],
+                 price: (item['price'] as num?)?.toDouble() ?? 0.0,
+                 changePercent: (item['change_percent'] as num?)?.toDouble() ?? 0.0,
+                 volume: (item['volume'] as num?)?.toInt() ?? 0,
+              );
+              results.add(entity);
+              _latestStocks[entity.symbol] = entity;
+           }
         }
-      } catch (e) {
-        // Ignore errors for individual stocks to return partial list
-        print("Error fetching initial quote for $symbol: $e");
       }
+    } catch (e) {
+      print("Batch Quotes Error: $e");
+      // Fallback or return empty
     }
     return results;
   }

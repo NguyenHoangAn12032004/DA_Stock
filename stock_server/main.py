@@ -567,12 +567,21 @@ async def fetch_real_price(symbol: str):
                     print(f"⚠️ get_vn_price logic error: {e}")
                     return None
             try:
-                result = await asyncio.wait_for(asyncio.to_thread(get_vn_price), timeout=5.0) # Increased timeout
                 if result:
                     price, volume, change_percent = result
                 else: 
                      return None
-            except: return None
+            except: 
+                # Trigger Backoff if Timeout or Error happens
+                global RATE_LIMIT_UNTIL
+                RATE_LIMIT_UNTIL = time.time() + 60 # 1 minute cooling for Timeout
+                return None
+            
+        except BaseException as e: # Catch SystemExit and Rate Limits from Vnstock
+             print(f"⚠️ Vnstock Hard Error/RateLimit: {e}")
+             global RATE_LIMIT_UNTIL
+             RATE_LIMIT_UNTIL = time.time() + 300 # 5 minutes cooling
+             return None
 
         # 2. US/Crypto (Yfinance)
         else:
@@ -618,8 +627,19 @@ async def market_data_simulator():
     print("🚀 Bắt đầu service cập nhật giá REALTIME...")
     symbols = ["HPG", "VCB", "FPT", "AAPL", "BTC-USD", "GOOG"]
     
+    # --- Smart Backoff State ---
+    global RATE_LIMIT_UNTIL
+    
     while not shutdown_event.is_set():
         try:
+            # Check Backoff
+            if time.time() < RATE_LIMIT_UNTIL:
+                 remaining = int(RATE_LIMIT_UNTIL - time.time())
+                 if remaining % 30 == 0: # Log only occasionally
+                     print(f"⏳ Rate Limit Cooldown: Pausing updates for {remaining}s...")
+                 await asyncio.sleep(10)
+                 continue
+
             # Chỉ chạy khi có kết nối
             if r and active_connections > 0:
                 updates = []
@@ -1440,6 +1460,39 @@ async def follow_user(follower_id: str, leader_id: str):
     
     return {"status": "success", "message": f"User {follower_id} is now copying {leader_id}"}
     
+class BatchPriceRequest(BaseModel):
+    symbols: list[str]
+
+@app.post("/api/stock/batch_quotes")
+async def get_batch_quotes(req: BatchPriceRequest):
+    """
+    Get Realtime Prices for multiple symbols from Redis Cache.
+    Zero latency, No Rate Limit.
+    """
+    if not r: return {"data": []}
+    
+    results = []
+    # Use Pipeline for speed
+    pipe = r.pipeline()
+    for s in req.symbols:
+        pipe.get(f"stock:{s.upper()}")
+        
+    data_list =  await asyncio.to_thread(pipe.execute)
+    
+    for i, json_str in enumerate(data_list):
+        symbol = req.symbols[i].upper()
+        if json_str:
+            try:
+                data = json.loads(json_str)
+                results.append(data)
+            except: pass
+        else:
+            # Fallback: Return empty/zero price structure so UI doesn't crash?
+            # Or just omit. Frontend handles missing.
+            pass
+            
+    return {"data": results}
+
 @app.get("/api/social/profile/{target_id}")
 async def get_trader_profile(target_id: str):
     # Mock Profile Data
