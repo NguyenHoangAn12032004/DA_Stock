@@ -8,8 +8,8 @@ import dataclasses
 
 # --- Enum Types ---
 class OrderSide(str, Enum):
-    BUY = "BUY"
-    SELL = "SELL"
+    BUY = "buy"
+    SELL = "sell"
 
 class OrderType(str, Enum):
     LIMIT = "LIMIT"

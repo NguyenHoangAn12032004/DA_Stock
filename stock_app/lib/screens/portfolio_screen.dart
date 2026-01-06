@@ -351,7 +351,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> with SingleTi
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      DateFormat('yyyy-MM-dd HH:mm').format(DateTime.fromMillisecondsSinceEpoch(order.timestamp * 1000)),
+                      DateFormat('yyyy-MM-dd HH:mm').format(DateTime.fromMillisecondsSinceEpoch(order.timestamp)),
                       style: TextStyle(fontSize: 12, color: isDark ? Colors.grey : Colors.grey[700]),
                     ),
                   ],

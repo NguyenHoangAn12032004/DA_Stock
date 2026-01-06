@@ -29,17 +29,21 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final data = response.data['data'];
+        // Backend returns: {"status": "success", "order_id": "...", "message": "..."}
+        // It does NOT return the full order object in 'data'. 
+        // We must construct the returned Entity from the Request + Response ID.
+        final responseData = response.data; 
+        
         return OrderEntity(
-          id: data['order_id'],
-          userId: data['user_id'],
-          symbol: data['symbol'],
-          side: data['side'].toString().toLowerCase() == 'buy' ? OrderSide.buy : OrderSide.sell,
-          quantity: data['quantity'],
-            price: double.tryParse(data['price'].toString()) ?? 0.0,
-          type: data['order_type'].toString().toLowerCase() == 'market' ? OrderType.market : OrderType.limit,
-          status: OrderStatus.pending, // Default for now
-          timestamp: (double.tryParse(data['timestamp'].toString()) ?? 0).toInt(),
+          id: responseData['order_id'],
+          userId: order.userId,
+          symbol: order.symbol,
+          side: order.side,
+          quantity: order.quantity,
+          price: order.price,
+          type: order.type,
+          status: OrderStatus.pending,
+          timestamp: DateTime.now().millisecondsSinceEpoch, // Use current client time as fallback, or parsed if available
         );
       } else {
         throw ServerFailure('Failed to place order: ${response.statusCode}');
@@ -58,15 +62,16 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         final List list = response.data['data'];
         return list.map((data) {
           return OrderEntity(
-            id: data['order_id'],
-            userId: data['user_id'],
+            id: data['id'] ?? data['order_id'], // Handle potential inconsistencies
+            userId: data['user_id'] ?? userId,
             symbol: data['symbol'],
-            side: data['side'].toString().toLowerCase() == 'buy' ? OrderSide.buy : OrderSide.sell,
+            side: data['side'].toString().trim().toLowerCase() == 'buy' ? OrderSide.buy : OrderSide.sell,
             quantity: int.tryParse(data['quantity'].toString()) ?? 0,
-              price: double.tryParse(data['price'].toString()) ?? 0.0,
+            price: double.tryParse(data['price'].toString()) ?? 0.0,
             type: data['order_type'].toString().toLowerCase() == 'market' ? OrderType.market : OrderType.limit,
-            status: data['status'] == 'matched' ? OrderStatus.matched : (data['status'] == 'cancelled' ? OrderStatus.canceled : OrderStatus.pending),
-            timestamp: (double.tryParse(data['timestamp'].toString()) ?? 0).toInt(),
+            status: data['status'] == 'matched' || data['status'] == 'filled' ? OrderStatus.matched : (data['status'] == 'cancelled' ? OrderStatus.canceled : OrderStatus.pending),
+            // Fix: Backend sends seconds (float), Frontend needs Milliseconds (int)
+            timestamp: ((double.tryParse(data['timestamp'].toString()) ?? 0) * 1000).toInt(),
           );
         }).toList();
       } else {

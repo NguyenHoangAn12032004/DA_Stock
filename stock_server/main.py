@@ -379,9 +379,14 @@ async def lifespan(app: FastAPI):
     
     # Startup
     try:
-        print("   -> Hydrating Engine...")
-        await asyncio.to_thread(hydrate_engine)
-        print("   -> Engine Hydrated.")
+        if r:
+            print("⚠️ [CLEANUP] Flushing Redis (User Request: Clean All)...")
+            r.flushdb()
+            print("✅ Redis Flushed.")
+            
+        print("   -> Hydrating Engine (Skipped after flush)...")
+        # await asyncio.to_thread(hydrate_engine)
+        # print("   -> Engine Hydrated.")
     except Exception as e:
         print(f"   ❌ Engine Hydration Failed: {e}")
 
@@ -1382,6 +1387,8 @@ async def place_order(order: OrderRequest):
         pipeline.hmset(f"order:{order_id}", order_dict)
         pipeline.sadd("pending_orders", order_id)
         pipeline.rpush(f"user_orders:{order.user_id}", order_id)
+        # 4. Trigger Matching Engine (Queue)
+        pipeline.rpush("matching_queue", order_id)
         pipeline.execute()
         
         # 4. Trigger Matching Engine (Async Background?)
@@ -1483,6 +1490,44 @@ def cancel_order(req: OrderCancelRequest):
         raise he
     except Exception as e:
         print(f"Cancel Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/portfolio/{user_id}")
+def get_portfolio(user_id: str):
+    """
+    Get User Portfolio (Balance + Holdings) from Firestore
+    """
+    db = get_db()
+    if not db:
+        raise HTTPException(status_code=503, detail="Database not connected")
+        
+    try:
+        user_ref = db.collection("users").document(user_id)
+        user_snap = user_ref.get()
+        if not user_snap.exists:
+             # Return empty/default for new users instead of 404 to avoid frontend crash
+             return {"balance": 0.0, "holdings": []}
+             
+        user_data = user_snap.to_dict()
+        balance = user_data.get("balance", 0.0)
+        
+        holdings_ref = user_ref.collection("holdings").stream()
+        holdings = []
+        for h in holdings_ref:
+            h_data = h.to_dict()
+            if h_data.get("quantity", 0) > 0:
+                holdings.append({
+                    "symbol": h_data.get("symbol"),
+                    "quantity": h_data.get("quantity"),
+                    "average_price": h_data.get("average_price", 0.0) # TODO: Track avg price in settlement
+                })
+                
+        return {
+            "balance": balance,
+            "holdings": holdings
+        }
+    except Exception as e:
+        print(f"Portfolio Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stock/batch_quotes")
@@ -2319,6 +2364,26 @@ async def update_alert(user_id: str, alert_id: str, req: UpdateAlertRequest):
 
 # --- AI PREDICTION API (HEURISTIC / MOCK FOR MVP) ---
 
+# --- DEBUG / ADMIN ---
+
+@app.post("/api/debug/reset")
+def debug_reset_redis():
+    """
+    MANUAL CLEANUP: Flushes Redis completely.
+    Use this if data is corrupted or showing 1970 dates.
+    """
+    if not r:
+         raise HTTPException(status_code=503, detail="Redis not connected")
+    try:
+        r.flushdb()
+        # Also re-hydrate empty engine?
+        global engine
+        engine = MatchingEngine() # Reset engine
+        print("⚠️ [DEBUG] Redis Flushed & Engine Reset by User Request.")
+        return {"status": "success", "message": "Redis cleared. Please restart app."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/predict/{symbol}")
 async def get_prediction(symbol: str):
     """
@@ -2355,6 +2420,100 @@ async def get_prediction(symbol: str):
         }
     except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- BACKGROUND WORKER ---
+def run_matching_engine_loop():
+    """
+    Background thread to process the Matching Queue.
+    Pops Order IDs from 'matching_queue', loads them, and runs the Engine.
+    """
+    print("🚀 [BACKGROUND] Matching Engine Loop Started")
+    
+    # Give Redis time to connect
+    time.sleep(2)
+    
+    while not shutdown_event.is_set():
+        try:
+            if not r:
+                time.sleep(1)
+                continue
+            
+            # Blocking Pop (Timeout 1s to allow shutdown check)
+            item = r.blpop("matching_queue", timeout=1)
+            if not item:
+                continue
+                
+            # item is (key, value) tuple
+            _, order_id_bytes = item
+            order_id = order_id_bytes.decode('utf-8')
+            
+            # Fetch Order Data
+            data = r.hgetall(f"order:{order_id}")
+            if not data:
+                print(f"⚠️ [MATCHING] Order {order_id} not found in Redis")
+                continue
+                
+            # Reconstruct Order Object
+            try:
+                side_str = data.get("side", "").upper()
+                type_str = data.get("order_type", "limit").upper() # Note: API uses 'order_type', Helper might use 'type'? Check API. API saves dict() from Pydantic. Pydantic has 'order_type'.
+                
+                # Correction: Pydantic OrderRequest has 'order_type'. Order class has 'type'.
+                # We need to map correctly.
+                
+                price = float(data.get("price", 0))
+                qty = int(float(data.get("quantity", 0)))
+                filled = int(float(data.get("filled", 0)))
+                ts = float(data.get("timestamp", time.time()))
+                
+                order = Order(
+                    id=data.get("id"),
+                    user_id=data.get("user_id"),
+                    symbol=data.get("symbol"),
+                    side=OrderSide[side_str] if side_str in OrderSide.__members__ else OrderSide.BUY,
+                    type=OrderType[type_str] if type_str in OrderType.__members__ else OrderType.LIMIT,
+                    price=price,
+                    quantity=qty,
+                    filled_quantity=filled,
+                    timestamp=ts,
+                    status=OrderStatus.PENDING
+                )
+                
+                # Run Matching
+                trades = engine.place_order(order)
+                
+                # Settle
+                if trades:
+                    process_executed_trades(trades)
+                    
+            except Exception as e:
+                print(f"⚠️ [MATCHING] Processing Error for {order_id}: {e}")
+                
+        except Exception as e:
+            print(f"⚠️ [BACKGROUND] Loop Error: {e}")
+            time.sleep(1)
+
+@app.on_event("startup")
+async def startup_event():
+    print("🌟 SERVER STARTING UP...")
+    
+    # 1. Hydrate Engine (Load Pending Orders)
+    # We should also fill 'matching_queue' if it's empty but 'pending_orders' is not?
+    # hydrate_engine() replays them directly to engine.
+    hydrate_engine()
+    
+    # 2. Start Maintenance Listener
+    start_config_listener()
+    
+    # 3. Start Background Matching Loop
+    t = threading.Thread(target=run_matching_engine_loop, daemon=True)
+    t.start()
+
+@app.on_event("shutdown")
+async def shutdown_event_handler():
+    print("🛑 SERVER SHUTTING DOWN...")
+    shutdown_event.set()
 
 
 if __name__ == "__main__":
